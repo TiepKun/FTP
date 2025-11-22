@@ -1,0 +1,114 @@
+# FileShare — Hệ thống chia sẻ file (Checkpoint 2)
+
+Mô tả ngắn: Dự án này triển khai một server chia sẻ file bằng Python với metadata lưu trên MongoDB và giao diện GUI cơ bản bằng Streamlit. Giao thức truyền dữ liệu là length-prefixed JSON header (4 byte big-endian) kèm payload nhị phân khi cần.
+
+Nền tảng
+- Ngôn ngữ: Python 3.10+
+- CSDL: MongoDB
+- GUI: Streamlit
+
+Nội dung chính
+- Truyền stream qua TCP: JSON header (length-prefixed) + optional raw bytes
+- Server đa client (threading)
+- Chỉnh sửa an toàn file `.txt` (UTF‑8)
+- Quota theo user
+- Ghi log hành vi
+- Thống kê server: active users, uptime, bytes in/out
+- GUI cơ bản với Streamlit
+
+Bắt đầu nhanh
+
+1) Chuẩn bị & cài đặt
+```bash
+python3 -m venv .venv
+source .venv/bin/activate     # macOS / Linux; Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+2) Cấu hình môi trường (tùy chọn)
+Tham khảo `.env.example`. Các biến thường dùng:
+- FS_HOST (mặc định 127.0.0.1)
+- FS_PORT (mặc định 5050)
+- FS_MONGO_URI (ví dụ mongodb://localhost:27017)
+- FS_DB_NAME
+- FS_DEFAULT_QUOTA (bytes; ví dụ 200*1024*1024)
+
+Trên macOS / Linux:
+```bash
+export FS_HOST=127.0.0.1
+export FS_PORT=5050
+export FS_MONGO_URI="mongodb://localhost:27017"
+export FS_DB_NAME="fileshare_db"
+export FS_DEFAULT_QUOTA=$((200*1024*1024))
+```
+
+3) Khởi động server
+```bash
+python server.py
+```
+
+4) Tạo user mẫu (tuỳ)
+```bash
+python db_seed.py
+# hoặc gọi db_seed.create_user trong mã
+```
+
+5) Sử dụng CLI client
+```bash
+python client.py
+```
+Các lệnh phổ biến: register, login, list, upload, download, delete, rename, readtxt, writetxt, stats, quit.
+
+6) Chạy GUI (Streamlit)
+```bash
+streamlit run streamlit_ui.py
+```
+GUI cho phép kết nối server, đăng ký/đăng nhập, upload/list/download, chỉnh sửa .txt và xem thống kê.
+
+Giao thức (tóm tắt)
+- Mỗi message = 4 byte big-endian (length) + JSON header (UTF‑8).
+- Nếu header chứa "data_len" > 0 → ngay sau header là payload nhị phân đúng data_len byte.
+- Ví dụ:
+  - UPLOAD: header {"cmd":"UPLOAD","path":"docs/a.pdf","overwrite":true} + file bytes
+  - DOWNLOAD: client gửi {"cmd":"DOWNLOAD","path":"docs/a.pdf"} → server trả header có "data_len" + file bytes
+
+Cấu trúc DB (MongoDB)
+- users: { username, password_hash, quota, created_at }
+- files: { owner, path, size, mtime }
+- sessions: { session_id, username, last_seen, bytes_in, bytes_out }
+- logs: { ts, user, action, detail }
+Indexes tạo tự động khi server chạy.
+
+Quota & thao tác file an toàn
+- Trước upload/ghi: server tính tổng bytes đã dùng (aggregation trên files) và từ chối nếu vượt quota.
+- Viết file nguyên tử: ghi file tạm, fsync, rồi os.replace để tránh ghi dở.
+- Chỉ cho phép thao tác text cho `.txt` dùng UTF‑8 (READ_TEXT / WRITE_TEXT).
+
+Thống kê & active users
+- Lệnh STATS trả: số active users (last_seen trong cửa sổ cấu hình), uptime, tổng bytes in/out, và used/quota của user gọi.
+
+Bảo mật & kiểm tra đường dẫn
+- Loại trừ path traversal bằng kiểm tra is_under(...) để đảm bảo đường dẫn nằm trong thư mục gốc của server.
+- Mật khẩu lưu dạng hash; không lưu plaintext.
+
+Tips & khắc phục sự cố
+- Nếu editor báo "Import 'streamlit' could not be resolved": tạo và kích hoạt virtualenv rồi pip install -r requirements.txt; chọn interpreter trong VS Code và khởi động lại LSP.
+- Nếu psycopg2 build lỗi trên macOS, dùng psycopg2-binary trong requirements hoặc cài toolchain phù hợp.
+- Kiểm tra kết nối MongoDB (FS_MONGO_URI) nếu server không khởi chạy.
+
+Các tệp quan trọng
+- server.py — server và handler, networking, I/O
+- client.py — CLI client
+- streamlit_ui.py — GUI Streamlit
+- config.py — cấu hình mặc định (ví dụ DEFAULT_QUOTA)
+- db_seed.py — tạo user mẫu
+- requirements.txt — dependency list
+- .env.example — biến môi trường mẫu
+
+Mục tiêu dự án
+- Tập trung vào network I/O, lưu trữ an toàn, quota, logging cho Checkpoint 2.
+- Dễ dàng mở rộng: authentication nâng cao, chia sẻ file, UI cải tiến.
+
+Liên hệ
+- Mở issue hoặc chỉnh sửa mã nguồn trong repo nếu cần cập nhật chức năng hay sửa lỗi.
