@@ -12,20 +12,26 @@ from pathlib import Path
 from pymongo import MongoClient, ASCENDING
 import bcrypt
 
-import config
+# ---- config fallback (dùng env nếu không có config.py) ----
+try:
+    import config  # type: ignore
+except Exception:
+    class config:
+        HOST = os.getenv("FS_HOST", "127.0.0.1")
+        PORT = int(os.getenv("FS_PORT", "5051"))
+        MONGO_URI = os.getenv("FS_MONGO_URI", "mongodb://127.0.0.1:27017/?directConnection=true")
+        DB_NAME = os.getenv("FS_DB_NAME", "fileshare_db")
+        STORAGE_DIR = os.getenv("FS_STORAGE_DIR", "./storage")
+        DEFAULT_QUOTA_BYTES = int(os.getenv("FS_DEFAULT_QUOTA", str(5 * 1024 * 1024 * 1024)))  # 5GB
+        SESSION_ACTIVE_SECS = int(os.getenv("FS_SESSION_ACTIVE_SECS", "600"))
 
-# ---------------- Protocol helpers (length-prefixed JSON + optional raw payload) ----------------
+# ====================== Protocol helpers ======================
 
 def send_message(conn, header: dict, data: bytes | None = None):
-    """Send a message: 4-byte big-endian length + JSON header (utf-8). If header has 'data_len' > 0,
-    raw data bytes follow immediately.
-    """
-    header = dict(header)  # copy
-    if data is not None:
-        header["data_len"] = len(data)
-    else:
-        header["data_len"] = 0
-    payload = json.dumps(header, ensure_ascii=False).encode("utf-8")
+    """Send: 4-byte big-endian length + JSON header (utf-8) + optional raw bytes (file)."""
+    header = dict(header)
+    header["data_len"] = len(data) if data else 0
+    payload = json.dumps(header, ensure_ascii=False, default=str).encode("utf-8")
     conn.sendall(struct.pack("!I", len(payload)))
     conn.sendall(payload)
     if header["data_len"]:
@@ -41,7 +47,7 @@ def recv_exact(conn, n: int) -> bytes:
     return bytes(buf)
 
 def recv_message(conn):
-    """Return (header: dict, data: bytes | None)"""
+    """Return (header: dict, data: bytes|None)."""
     raw_len = recv_exact(conn, 4)
     (length,) = struct.unpack("!I", raw_len)
     header_bytes = recv_exact(conn, length)
@@ -50,7 +56,7 @@ def recv_message(conn):
     data = recv_exact(conn, data_len) if data_len > 0 else None
     return header, data
 
-# ---------------- Utilities ----------------
+# ====================== Utilities ======================
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -81,9 +87,14 @@ def human_size(n: int) -> str:
         n /= 1024
     return f"{n:.1f} PB"
 
-# ---------------- Database ----------------
+# ====================== Database ======================
 
-mongo = MongoClient(config.MONGO_URI)
+mongo = MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
+try:
+    mongo.admin.command("ping")
+except Exception as e:
+    raise SystemExit(f"[MongoDB] Cannot connect: {e}\nCheck FS_MONGO_URI or start MongoDB first.")
+
 db = mongo[config.DB_NAME]
 
 def init_db():
@@ -96,7 +107,7 @@ def init_db():
 
 init_db()
 
-# ---------------- Quota helpers ----------------
+# ====================== Quota helpers ======================
 
 def user_used_bytes(username: str) -> int:
     agg = db.files.aggregate([
@@ -108,16 +119,18 @@ def user_used_bytes(username: str) -> int:
 
 def get_quota(username: str) -> int:
     user = db.users.find_one({"username": username}, {"quota": 1})
-    return int(user.get("quota", config.DEFAULT_QUOTA_BYTES))
+    return int(user.get("quota", config.DEFAULT_QUOTA_BYTES)) if user else config.DEFAULT_QUOTA_BYTES
 
 def can_store(username: str, add_bytes: int) -> tuple[bool, int, int]:
     used = user_used_bytes(username)
     quota = get_quota(username)
     return (used + add_bytes) <= quota, used, quota
 
-# ---------------- Authentication ----------------
+# ====================== Auth & logs ======================
 
 def register(username: str, password: str) -> tuple[bool, str]:
+    if not username or not password:
+        return False, "Missing username/password"
     if db.users.find_one({"username": username}):
         return False, "User already exists"
     pw_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -131,12 +144,9 @@ def register(username: str, password: str) -> tuple[bool, str]:
 
 def verify(username: str, password: str) -> bool:
     user = db.users.find_one({"username": username})
-    if not user:
-        return False
+    if not user: return False
     pw_hash = user.get("password", "").encode("utf-8")
     return bcrypt.checkpw(password.encode("utf-8"), pw_hash)
-
-# ---------------- Logging ----------------
 
 def log_action(user: str | None, action: str, detail: dict):
     db.logs.insert_one({
@@ -146,7 +156,7 @@ def log_action(user: str | None, action: str, detail: dict):
         "detail": detail
     })
 
-# ---------------- Server stats ----------------
+# ====================== Server stats ======================
 
 server_start = time.time()
 total_in = 0
@@ -171,35 +181,59 @@ def active_user_count() -> int:
     cutoff = utc_now().timestamp() - config.SESSION_ACTIVE_SECS
     return db.sessions.count_documents({"last_seen": {"$gte": datetime.fromtimestamp(cutoff, tz=timezone.utc)}})
 
-# ---------------- Command handlers ----------------
+# ====================== Folder & file helpers ======================
 
-def handle_list(username: str, req: dict):
+def list_dir(username: str, cwd: str = ""):
+    """Return items directly under cwd: separate folders[] and files[]."""
     base = ensure_user_dirs(username)
-    items = []
-    for p in sorted(base.rglob("*")):
-        if p.is_file():
-            rel = str(p.relative_to(base))
-            meta = db.files.find_one({"owner": username, "path": rel}) or {}
-            items.append({
-                "path": rel,
-                "size": meta.get("size", p.stat().st_size),
-                "mtime": meta.get("mtime", datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc).isoformat())
-            })
-    return {"ok": True, "items": items}
+    target = (base / (cwd or "")).resolve()
+    if not is_under(base, target):
+        return {"ok": False, "error": "Invalid path traversal"}
+    target.mkdir(parents=True, exist_ok=True)
 
-def handle_upload(username: str, req: dict, data: bytes | None):
-    rel_path = req.get("path")
-    if not isinstance(rel_path, str):
-        return {"ok": False, "error": "Invalid path"}
-    if data is None:
-        return {"ok": False, "error": "Missing file data"}
-    overwrite = bool(req.get("overwrite", False))
+    folders, files = [], []
+    try:
+        with os.scandir(target) as it:
+            for entry in it:
+                rel = str(Path(entry.path).relative_to(base))
+                st = entry.stat()
+                if entry.is_dir():
+                    folders.append({
+                        "type": "folder",
+                        "path": rel,
+                        "size": 0,
+                        "mtime": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat()
+                    })
+                elif entry.is_file():
+                    meta = db.files.find_one({"owner": username, "path": rel}) or {}
+                    files.append({
+                        "type": "file",
+                        "path": rel,
+                        "size": meta.get("size", st.st_size),
+                        "mtime": meta.get("mtime", datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat())
+                    })
+    except FileNotFoundError:
+        return {"ok": False, "error": "Directory not found"}
+
+    return {"ok": True, "cwd": cwd or "", "folders": folders, "files": files}
+
+def mkdir(username: str, path: str):
+    base = ensure_user_dirs(username)
+    dest = (base / path).resolve()
+    if not is_under(base, dest):
+        return {"ok": False, "error": "Invalid path traversal"}
+    dest.mkdir(parents=True, exist_ok=True)
+    log_action(username, "MKDIR", {"path": path})
+    return {"ok": True}
+
+def upload_file(username: str, rel_path: str, data: bytes | None, overwrite: bool = False):
+    if not isinstance(rel_path, str) or data is None:
+        return {"ok": False, "error": "Invalid parameters"}
     user_dir = ensure_user_dirs(username)
     dest = (user_dir / rel_path).resolve()
     if not is_under(user_dir, dest):
         return {"ok": False, "error": "Invalid path traversal"}
     dest.parent.mkdir(parents=True, exist_ok=True)
-    # quota check (consider overwrite delta)
     prev = dest.stat().st_size if dest.exists() else 0
     can, used, quota = can_store(username, len(data) - prev)
     if not can and not overwrite:
@@ -215,8 +249,7 @@ def handle_upload(username: str, req: dict, data: bytes | None):
     log_action(username, "UPLOAD", {"path": rel_path, "size": len(data)})
     return {"ok": True, "size": st.st_size}
 
-def handle_download(username: str, req: dict):
-    rel_path = req.get("path")
+def download_file(username: str, rel_path: str):
     user_dir = ensure_user_dirs(username)
     src = (user_dir / rel_path).resolve()
     if not is_under(user_dir, src):
@@ -226,8 +259,7 @@ def handle_download(username: str, req: dict):
     data = src.read_bytes()
     return {"ok": True, "path": rel_path, "size": len(data)}, data
 
-def handle_delete(username: str, req: dict):
-    rel_path = req.get("path")
+def delete_path(username: str, rel_path: str):
     user_dir = ensure_user_dirs(username)
     target = (user_dir / rel_path).resolve()
     if not is_under(user_dir, target):
@@ -236,7 +268,6 @@ def handle_delete(username: str, req: dict):
         return {"ok": False, "error": "Not found"}
     if target.is_dir():
         shutil.rmtree(target)
-        # remove all metadata under that dir
         prefix = str(target.relative_to(user_dir)).rstrip("/") + "/"
         db.files.delete_many({"owner": username, "path": {"$regex": f"^{prefix}"}})
     else:
@@ -245,9 +276,7 @@ def handle_delete(username: str, req: dict):
     log_action(username, "DELETE", {"path": rel_path})
     return {"ok": True}
 
-def handle_rename(username: str, req: dict):
-    old = req.get("old_path")
-    new = req.get("new_path")
+def rename_path(username: str, old: str, new: str):
     user_dir = ensure_user_dirs(username)
     src = (user_dir / old).resolve()
     dst = (user_dir / new).resolve()
@@ -257,19 +286,23 @@ def handle_rename(username: str, req: dict):
         return {"ok": False, "error": "Source not found"}
     dst.parent.mkdir(parents=True, exist_ok=True)
     os.replace(src, dst)
-    # update metadata (single file case)
     old_rel = str(src.relative_to(user_dir))
     new_rel = str(dst.relative_to(user_dir))
-    meta = db.files.find_one({"owner": username, "path": old_rel})
-    if meta:
-        db.files.update_one({"_id": meta["_id"]}, {"$set": {"path": new_rel}})
+    if dst.is_file():
+        meta = db.files.find_one({"owner": username, "path": old_rel})
+        if meta:
+            db.files.update_one({"_id": meta["_id"]}, {"$set": {"path": new_rel}})
+    else:
+        prefix = old_rel.rstrip("/") + "/"
+        for doc in db.files.find({"owner": username, "path": {"$regex": f"^{prefix}"}}):
+            suffix = doc["path"][len(prefix):]
+            db.files.update_one({"_id": doc["_id"]}, {"$set": {"path": new_rel.rstrip('/') + '/' + suffix}})
     log_action(username, "RENAME", {"old": old, "new": new})
     return {"ok": True}
 
-def handle_read_text(username: str, req: dict):
-    rel_path = req.get("path")
-    if not str(rel_path).endswith(".txt"):
-        return {"ok": False, "error": "Only .txt allowed"}
+def read_text(username: str, rel_path: str):
+    if not (rel_path.endswith(".txt") or rel_path.endswith(".md")):
+        return {"ok": False, "error": "Only .txt/.md allowed"}
     user_dir = ensure_user_dirs(username)
     f = (user_dir / rel_path).resolve()
     if not is_under(user_dir, f):
@@ -282,17 +315,15 @@ def handle_read_text(username: str, req: dict):
         return {"ok": False, "error": "File not utf-8 text"}
     return {"ok": True, "content": content}
 
-def handle_write_text(username: str, req: dict):
-    rel_path = req.get("path")
-    content = req.get("content", "")
-    if not str(rel_path).endswith(".txt"):
-        return {"ok": False, "error": "Only .txt allowed"}
+def write_text(username: str, rel_path: str, content: str):
+    if not (rel_path.endswith(".txt") or rel_path.endswith(".md")):
+        return {"ok": False, "error": "Only .txt/.md allowed"}
     if not isinstance(content, str):
         return {"ok": False, "error": "Invalid content"}
     data = content.encode("utf-8")
-    return handle_upload(username, {"path": rel_path, "overwrite": True}, data)
+    return upload_file(username, rel_path, data, overwrite=True)
 
-def handle_stats(username: str, req: dict):
+def stats(username: str):
     used = user_used_bytes(username)
     quota = get_quota(username)
     active = active_user_count()
@@ -303,7 +334,7 @@ def handle_stats(username: str, req: dict):
             "server_bytes_in": _in, "server_bytes_out": _out,
             "user_used_bytes": used, "user_quota_bytes": quota}
 
-# ---------------- Client thread ----------------
+# ====================== Client thread & dispatch ======================
 
 def client_thread(conn: socket.socket, addr):
     session_id = str(uuid.uuid4())
@@ -312,15 +343,14 @@ def client_thread(conn: socket.socket, addr):
         update_session(session_id, None, 0, 0)
         while True:
             hdr, data = recv_message(conn)
-            add_bytes(in_bytes=4 + len(json.dumps(hdr).encode("utf-8")) + (len(data) if data else 0))
+            add_bytes(in_bytes=4 + len(json.dumps(hdr, default=str).encode("utf-8")) + (len(data) if data else 0))
             cmd = hdr.get("cmd")
+
             if cmd == "PING":
-                send_message(conn, {"ok": True, "pong": True})
-                continue
+                send_message(conn, {"ok": True, "pong": True}); continue
             if cmd == "REGISTER":
                 ok, msg = register(hdr.get("username",""), hdr.get("password",""))
-                send_message(conn, {"ok": ok, "msg": msg})
-                continue
+                send_message(conn, {"ok": ok, "msg": msg}); continue
             if cmd == "LOGIN":
                 if verify(hdr.get("username",""), hdr.get("password","")):
                     username = hdr["username"]
@@ -330,39 +360,41 @@ def client_thread(conn: socket.socket, addr):
                     send_message(conn, {"ok": False, "error": "Bad credentials"})
                 continue
             if cmd == "QUIT":
-                send_message(conn, {"ok": True, "bye": True})
-                break
+                send_message(conn, {"ok": True, "bye": True}); break
 
-            # Require login for the rest
             if not username:
                 send_message(conn, {"ok": False, "error": "Not authenticated"})
                 continue
 
+            # Folder/File API
             if cmd == "LIST":
-                resp = handle_list(username, hdr)
+                cwd = hdr.get("cwd","")
+                resp = list_dir(username, cwd)
+                send_message(conn, resp)
+            elif cmd == "MKDIR":
+                resp = mkdir(username, hdr.get("path",""))
                 send_message(conn, resp)
             elif cmd == "UPLOAD":
-                resp = handle_upload(username, hdr, data)
+                resp = upload_file(username, hdr.get("path",""), data, overwrite=bool(hdr.get("overwrite", False)))
                 send_message(conn, resp)
             elif cmd == "DOWNLOAD":
-                meta, file_bytes = handle_download(username, hdr)
+                meta, file_bytes = download_file(username, hdr.get("path",""))
                 send_message(conn, meta, file_bytes if meta.get("ok") else None)
-                if meta.get("ok"):
-                    add_bytes(out_bytes=len(file_bytes))
+                if meta.get("ok"): add_bytes(out_bytes=len(file_bytes))
             elif cmd == "DELETE":
-                resp = handle_delete(username, hdr)
+                resp = delete_path(username, hdr.get("path",""))
                 send_message(conn, resp)
             elif cmd == "RENAME":
-                resp = handle_rename(username, hdr)
+                resp = rename_path(username, hdr.get("old_path",""), hdr.get("new_path",""))
                 send_message(conn, resp)
             elif cmd == "READ_TEXT":
-                resp = handle_read_text(username, hdr)
+                resp = read_text(username, hdr.get("path",""))
                 send_message(conn, resp)
             elif cmd == "WRITE_TEXT":
-                resp = handle_write_text(username, hdr)
+                resp = write_text(username, hdr.get("path",""), hdr.get("content",""))
                 send_message(conn, resp)
             elif cmd == "STATS":
-                resp = handle_stats(username, hdr)
+                resp = stats(username)
                 send_message(conn, resp)
             else:
                 send_message(conn, {"ok": False, "error": f"Unknown cmd {cmd}"})
@@ -374,6 +406,7 @@ def client_thread(conn: socket.socket, addr):
         db.sessions.update_one({"session_id": session_id}, {"$set": {"last_seen": utc_now()}})
 
 def serve():
+    Path(config.STORAGE_DIR).mkdir(parents=True, exist_ok=True)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((config.HOST, config.PORT))

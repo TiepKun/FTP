@@ -12,10 +12,7 @@
 # implied.  See the License for the specific language governing
 # permissions and limitations under the License.
 
-"""Advanced options for MongoDB drivers implemented on top of PyMongo.
-
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-"""
+"""Advanced options for MongoDB drivers implemented on top of PyMongo."""
 from __future__ import annotations
 
 from collections import namedtuple

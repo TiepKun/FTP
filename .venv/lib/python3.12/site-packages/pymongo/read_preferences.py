@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Utilities for choosing which member of a replica set to read from.
-
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-"""
+"""Utilities for choosing which member of a replica set to read from."""
 
 from __future__ import annotations
 
@@ -32,7 +29,6 @@ from pymongo.server_selectors import (
 if TYPE_CHECKING:
     from pymongo.server_selectors import Selection
     from pymongo.topology_description import TopologyDescription
-
 
 _PRIMARY = 0
 _PRIMARY_PREFERRED = 1
@@ -607,7 +603,10 @@ class MovingAverage:
 
     def add_sample(self, sample: float) -> None:
         if sample < 0:
-            raise ValueError(f"duration cannot be negative {sample}")
+            # Likely system time change while waiting for hello response
+            # and not using time.monotonic. Ignore it, the next one will
+            # probably be valid.
+            return
         if self.average is None:
             self.average = sample
         else:

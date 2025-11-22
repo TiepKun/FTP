@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tools for working with write concerns.
-
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-"""
+"""Tools for working with write concerns."""
 from __future__ import annotations
 
 from typing import Any, Optional, Union

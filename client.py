@@ -5,7 +5,7 @@ import os
 import sys
 
 HOST = os.getenv("FS_HOST", "127.0.0.1")
-PORT = int(os.getenv("FS_PORT", "5050"))
+PORT = int(os.getenv("FS_PORT", "5051"))
 
 def send_message(conn, header: dict, data: bytes | None = None):
     header = dict(header)

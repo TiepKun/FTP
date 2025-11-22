@@ -17,7 +17,7 @@ import warnings
 from typing import Any, Iterable, Optional, Union
 
 from pymongo.hello import HelloCompat
-from pymongo.helpers_shared import _SENSITIVE_COMMANDS
+from pymongo.helpers import _SENSITIVE_COMMANDS
 
 _SUPPORTED_COMPRESSORS = {"snappy", "zlib", "zstd"}
 _NO_COMPRESSION = {HelloCompat.CMD, HelloCompat.LEGACY_CMD}
@@ -26,7 +26,7 @@ _NO_COMPRESSION.update(_SENSITIVE_COMMANDS)
 
 def _have_snappy() -> bool:
     try:
-        import snappy  # type:ignore[import-not-found]  # noqa: F401
+        import snappy  # type:ignore[import]  # noqa: F401
 
         return True
     except ImportError:
@@ -146,7 +146,6 @@ class ZstdContext:
     def compress(data: bytes) -> bytes:
         # ZstdCompressor is not thread safe.
         # TODO: Use a pool?
-
         import zstandard
 
         return zstandard.ZstdCompressor().compress(data)

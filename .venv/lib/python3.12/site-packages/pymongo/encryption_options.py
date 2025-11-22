@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Support for automatic client-side field level encryption.
-
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-"""
+"""Support for automatic client-side field level encryption."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Mapping, Optional
 
 try:
-    import pymongocrypt  # type:ignore[import-untyped] # noqa: F401
-
-    # Check for pymongocrypt>=1.10.
-    from pymongocrypt import synchronous as _  # noqa: F401
+    import pymongocrypt  # type:ignore[import] # noqa: F401
 
     _HAVE_PYMONGOCRYPT = True
 except ImportError:
@@ -35,7 +29,8 @@ from pymongo.errors import ConfigurationError
 from pymongo.uri_parser import _parse_kms_tls_options
 
 if TYPE_CHECKING:
-    from pymongo.typings import _AgnosticMongoClient, _DocumentTypeArg
+    from pymongo.mongo_client import MongoClient
+    from pymongo.typings import _DocumentTypeArg
 
 
 class AutoEncryptionOpts:
@@ -45,7 +40,7 @@ class AutoEncryptionOpts:
         self,
         kms_providers: Mapping[str, Any],
         key_vault_namespace: str,
-        key_vault_client: Optional[_AgnosticMongoClient[_DocumentTypeArg]] = None,
+        key_vault_client: Optional[MongoClient[_DocumentTypeArg]] = None,
         schema_map: Optional[Mapping[str, Any]] = None,
         bypass_auto_encryption: bool = False,
         mongocryptd_uri: str = "mongodb://localhost:27020",
@@ -70,7 +65,7 @@ class AutoEncryptionOpts:
         users. To configure automatic *decryption* without automatic
         *encryption* set ``bypass_auto_encryption=True``. Explicit
         encryption and explicit decryption is also supported for all users
-        with the :class:`~pymongo.asynchronous.encryption.AsyncClientEncryption` and :class:`~pymongo.encryption.ClientEncryption` classes.
+        with the :class:`~pymongo.encryption.ClientEncryption` class.
 
         See :ref:`automatic-client-side-encryption` for an example.
 
@@ -117,7 +112,7 @@ class AutoEncryptionOpts:
             provider.
         :param key_vault_client: By default, the key vault collection
             is assumed to reside in the same MongoDB cluster as the encrypted
-            AsyncMongoClient/MongoClient. Use this option to route data key queries to a
+            MongoClient. Use this option to route data key queries to a
             separate MongoDB cluster.
         :param schema_map: Map of collection namespace ("db.coll") to
             JSON Schema.  By default, a collection's JSONSchema is periodically
@@ -141,7 +136,7 @@ class AutoEncryptionOpts:
             to the *local* mongocryptd process. Defaults to
             ``'mongodb://localhost:27020'``.
         :param mongocryptd_bypass_spawn: If ``True``, the encrypted
-            AsyncMongoClient/MongoClient will not attempt to spawn the mongocryptd process.
+            MongoClient will not attempt to spawn the mongocryptd process.
             Defaults to ``False``.
         :param mongocryptd_spawn_path: Used for spawning the
             mongocryptd process. Defaults to ``'mongocryptd'`` and spawns
@@ -154,7 +149,7 @@ class AutoEncryptionOpts:
         :param kms_tls_options:  A map of KMS provider names to TLS
             options to use when creating secure connections to KMS providers.
             Accepts the same TLS options as
-            :class:`pymongo.mongo_client.AsyncMongoClient` and :class:`pymongo.mongo_client.MongoClient`. For example, to
+            :class:`pymongo.mongo_client.MongoClient`. For example, to
             override the system default CA file::
 
               kms_tls_options={'kmip': {'tlsCAFile': certifi.where()}}
@@ -234,20 +229,20 @@ class AutoEncryptionOpts:
 
 
 class RangeOpts:
-    """Options to configure encrypted queries using the range algorithm."""
+    """Options to configure encrypted queries using the rangePreview algorithm."""
 
     def __init__(
         self,
-        sparsity: Optional[int] = None,
-        trim_factor: Optional[int] = None,
+        sparsity: int,
         min: Optional[Any] = None,
         max: Optional[Any] = None,
         precision: Optional[int] = None,
     ) -> None:
-        """Options to configure encrypted queries using the range algorithm.
+        """Options to configure encrypted queries using the rangePreview algorithm.
+
+        .. note:: This feature is experimental only, and not intended for public use.
 
         :param sparsity: An integer.
-        :param trim_factor: An integer.
         :param min: A BSON scalar value corresponding to the type being queried.
         :param max: A BSON scalar value corresponding to the type being queried.
         :param precision: An integer, may only be set for double or decimal128 types.
@@ -257,15 +252,13 @@ class RangeOpts:
         self.min = min
         self.max = max
         self.sparsity = sparsity
-        self.trim_factor = trim_factor
         self.precision = precision
 
     @property
     def document(self) -> dict[str, Any]:
         doc = {}
         for k, v in [
-            ("sparsity", int64.Int64(self.sparsity) if self.sparsity else None),
-            ("trimFactor", self.trim_factor),
+            ("sparsity", int64.Int64(self.sparsity)),
             ("precision", self.precision),
             ("min", self.min),
             ("max", self.max),

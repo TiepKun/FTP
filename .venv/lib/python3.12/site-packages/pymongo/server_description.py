@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Represent one server the driver is connected to.
-
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-"""
+"""Represent one server the driver is connected to."""
 from __future__ import annotations
 
 import time

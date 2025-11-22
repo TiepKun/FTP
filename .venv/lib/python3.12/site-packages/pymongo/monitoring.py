@@ -20,9 +20,6 @@
     are included in the PyMongo distribution under the
     :mod:`~pymongo.event_loggers` submodule.
 
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-
-
 Use :func:`register` to register global listeners for specific events.
 Listeners must inherit from one of the abstract classes below and implement
 the correct functions for that class.
@@ -194,7 +191,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 from bson.objectid import ObjectId
 from pymongo.hello import Hello, HelloCompat
-from pymongo.helpers_shared import _SENSITIVE_COMMANDS, _handle_exception
+from pymongo.helpers import _SENSITIVE_COMMANDS, _handle_exception
 from pymongo.typings import _Address, _DocumentOut
 
 if TYPE_CHECKING:

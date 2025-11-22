@@ -12,10 +12,7 @@
 # implied.  See the License for the specific language governing
 # permissions and limitations under the License.
 
-"""Represent a deployment of MongoDB servers.
-
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-"""
+"""Represent a deployment of MongoDB servers."""
 from __future__ import annotations
 
 from random import sample

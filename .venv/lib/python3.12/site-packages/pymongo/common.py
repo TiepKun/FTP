@@ -53,8 +53,7 @@ from pymongo.server_api import ServerApi
 from pymongo.write_concern import DEFAULT_WRITE_CONCERN, WriteConcern, validate_boolean
 
 if TYPE_CHECKING:
-    from pymongo.typings import _AgnosticClientSession
-
+    from pymongo.client_session import ClientSession
 
 ORDERED_TYPES: Sequence[Type] = (SON, OrderedDict)
 
@@ -68,8 +67,7 @@ MAX_WRITE_BATCH_SIZE = 1000
 # What this version of PyMongo supports.
 MIN_SUPPORTED_SERVER_VERSION = "3.6"
 MIN_SUPPORTED_WIRE_VERSION = 6
-# MongoDB 8.0
-MAX_SUPPORTED_WIRE_VERSION = 25
+MAX_SUPPORTED_WIRE_VERSION = 21
 
 # Frequency to call hello on servers, in seconds.
 HEARTBEAT_FREQUENCY = 10
@@ -380,7 +378,7 @@ def validate_read_preference_mode(dummy: Any, value: Any) -> _ServerMode:
 
 def validate_auth_mechanism(option: str, value: Any) -> str:
     """Validate the authMechanism URI option."""
-    from pymongo.auth_shared import MECHANISMS
+    from pymongo.auth import MECHANISMS
 
     if value not in MECHANISMS:
         raise ValueError(f"{option} must be in {tuple(MECHANISMS)}")
@@ -446,7 +444,7 @@ def validate_auth_mechanism_properties(option: str, value: Any) -> dict[str, Uni
             elif key in ["ALLOWED_HOSTS"] and isinstance(value, list):
                 props[key] = value
             elif key in ["OIDC_CALLBACK", "OIDC_HUMAN_CALLBACK"]:
-                from pymongo.auth_oidc_shared import OIDCCallback
+                from pymongo.auth_oidc import OIDCCallback
 
                 if not isinstance(value, OIDCCallback):
                     raise ValueError("callback must be an OIDCCallback object")
@@ -850,7 +848,7 @@ def get_validated_options(
             return x
 
         def get_setter_key(x: str) -> str:
-            return options.cased_key(x)
+            return options.cased_key(x)  # type: ignore[attr-defined]
 
     else:
         validated_options = {}
@@ -904,7 +902,7 @@ class BaseObject:
     ) -> None:
         if not isinstance(codec_options, CodecOptions):
             raise TypeError("codec_options must be an instance of bson.codec_options.CodecOptions")
-        self._codec_options = codec_options
+        self.__codec_options = codec_options
 
         if not isinstance(read_preference, _ServerMode):
             raise TypeError(
@@ -912,24 +910,24 @@ class BaseObject:
                 "pymongo.read_preferences for valid "
                 "options."
             )
-        self._read_preference = read_preference
+        self.__read_preference = read_preference
 
         if not isinstance(write_concern, WriteConcern):
             raise TypeError(
                 "write_concern must be an instance of pymongo.write_concern.WriteConcern"
             )
-        self._write_concern = write_concern
+        self.__write_concern = write_concern
 
         if not isinstance(read_concern, ReadConcern):
             raise TypeError("read_concern must be an instance of pymongo.read_concern.ReadConcern")
-        self._read_concern = read_concern
+        self.__read_concern = read_concern
 
     @property
     def codec_options(self) -> CodecOptions:
         """Read only access to the :class:`~bson.codec_options.CodecOptions`
         of this instance.
         """
-        return self._codec_options
+        return self.__codec_options
 
     @property
     def write_concern(self) -> WriteConcern:
@@ -939,9 +937,9 @@ class BaseObject:
         .. versionchanged:: 3.0
           The :attr:`write_concern` attribute is now read only.
         """
-        return self._write_concern
+        return self.__write_concern
 
-    def _write_concern_for(self, session: Optional[_AgnosticClientSession]) -> WriteConcern:
+    def _write_concern_for(self, session: Optional[ClientSession]) -> WriteConcern:
         """Read only access to the write concern of this instance or session."""
         # Override this operation's write concern with the transaction's.
         if session and session.in_transaction:
@@ -955,14 +953,14 @@ class BaseObject:
         .. versionchanged:: 3.0
           The :attr:`read_preference` attribute is now read only.
         """
-        return self._read_preference
+        return self.__read_preference
 
-    def _read_preference_for(self, session: Optional[_AgnosticClientSession]) -> _ServerMode:
+    def _read_preference_for(self, session: Optional[ClientSession]) -> _ServerMode:
         """Read only access to the read preference of this instance or session."""
         # Override this operation's read preference with the transaction's.
         if session:
-            return session._txn_read_preference() or self._read_preference
-        return self._read_preference
+            return session._txn_read_preference() or self.__read_preference
+        return self.__read_preference
 
     @property
     def read_concern(self) -> ReadConcern:
@@ -971,7 +969,7 @@ class BaseObject:
 
         .. versionadded:: 3.2
         """
-        return self._read_concern
+        return self.__read_concern
 
 
 class _CaseInsensitiveDictionary(MutableMapping[str, Any]):
@@ -1060,13 +1058,3 @@ class _CaseInsensitiveDictionary(MutableMapping[str, Any]):
 
     def cased_key(self, key: str) -> Any:
         return self.__casedkeys[key.lower()]
-
-
-def has_c() -> bool:
-    """Is the C extension installed?"""
-    try:
-        from pymongo import _cmessage  # type: ignore[attr-defined] # noqa: F401
-
-        return True
-    except ImportError:
-        return False

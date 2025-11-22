@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Operation class definitions.
-
-.. seealso:: This module is compatible with both the synchronous and asynchronous PyMongo APIs.
-"""
+"""Operation class definitions."""
 from __future__ import annotations
 
 import enum
@@ -31,17 +28,15 @@ from typing import (
 )
 
 from bson.raw_bson import RawBSONDocument
-from pymongo import helpers_shared
+from pymongo import helpers
 from pymongo.collation import validate_collation_or_none
 from pymongo.common import validate_is_mapping, validate_list
-from pymongo.errors import InvalidOperation
-from pymongo.helpers_shared import _gen_index_name, _index_document, _index_list
+from pymongo.helpers import _gen_index_name, _index_document, _index_list
 from pymongo.typings import _CollationIn, _DocumentType, _Pipeline
 from pymongo.write_concern import validate_boolean
 
 if TYPE_CHECKING:
-    from pymongo.typings import _AgnosticBulk, _AgnosticClientBulk
-
+    from pymongo.bulk import _Bulk
 
 # Hint supports index name, "myIndex", a list of either strings or index pairs: [('x', 1), ('y', -1), 'z''], or a dictionary
 _IndexList = Union[
@@ -53,7 +48,6 @@ _IndexKeyHint = Union[str, _IndexList]
 class _Op(str, enum.Enum):
     ABORT = "abortTransaction"
     AGGREGATE = "aggregate"
-    BULK_WRITE = "bulkWrite"
     COMMIT = "commitTransaction"
     COUNT = "count"
     CREATE = "create"
@@ -85,130 +79,48 @@ class _Op(str, enum.Enum):
 class InsertOne(Generic[_DocumentType]):
     """Represents an insert_one operation."""
 
-    __slots__ = (
-        "_doc",
-        "_namespace",
-    )
+    __slots__ = ("_doc",)
 
-    def __init__(self, document: _DocumentType, namespace: Optional[str] = None) -> None:
+    def __init__(self, document: _DocumentType) -> None:
         """Create an InsertOne instance.
 
-        For use with :meth:`~pymongo.asynchronous.collection.AsyncCollection.bulk_write`, :meth:`~pymongo.collection.Collection.bulk_write`,
-        :meth:`~pymongo.asynchronous.mongo_client.AsyncMongoClient.bulk_write` and :meth:`~pymongo.mongo_client.MongoClient.bulk_write`.
+        For use with :meth:`~pymongo.collection.Collection.bulk_write`.
 
         :param document: The document to insert. If the document is missing an
             _id field one will be added.
-        :param namespace: (optional) The namespace in which to insert a document.
-
-        .. versionchanged:: 4.9
-           Added the `namespace` option to support `MongoClient.bulk_write`.
         """
         self._doc = document
-        self._namespace = namespace
 
-    def _add_to_bulk(self, bulkobj: _AgnosticBulk) -> None:
-        """Add this operation to the _AsyncBulk/_Bulk instance `bulkobj`."""
+    def _add_to_bulk(self, bulkobj: _Bulk) -> None:
+        """Add this operation to the _Bulk instance `bulkobj`."""
         bulkobj.add_insert(self._doc)  # type: ignore[arg-type]
 
-    def _add_to_client_bulk(self, bulkobj: _AgnosticClientBulk) -> None:
-        """Add this operation to the _AsyncClientBulk/_ClientBulk instance `bulkobj`."""
-        if not self._namespace:
-            raise InvalidOperation(
-                "MongoClient.bulk_write requires a namespace to be provided for each write operation"
-            )
-        bulkobj.add_insert(
-            self._namespace,
-            self._doc,  # type: ignore[arg-type]
-        )
-
     def __repr__(self) -> str:
-        if self._namespace:
-            return f"{self.__class__.__name__}({self._doc!r}, {self._namespace!r})"
-        return f"{self.__class__.__name__}({self._doc!r})"
+        return f"InsertOne({self._doc!r})"
 
     def __eq__(self, other: Any) -> bool:
         if type(other) == type(self):
-            return other._doc == self._doc and other._namespace == self._namespace
+            return other._doc == self._doc
         return NotImplemented
 
     def __ne__(self, other: Any) -> bool:
         return not self == other
 
 
-class _DeleteOp:
-    """Private base class for delete operations."""
-
-    __slots__ = (
-        "_filter",
-        "_collation",
-        "_hint",
-        "_namespace",
-    )
-
-    def __init__(
-        self,
-        filter: Mapping[str, Any],
-        collation: Optional[_CollationIn] = None,
-        hint: Optional[_IndexKeyHint] = None,
-        namespace: Optional[str] = None,
-    ) -> None:
-        if filter is not None:
-            validate_is_mapping("filter", filter)
-        if hint is not None and not isinstance(hint, str):
-            self._hint: Union[str, dict[str, Any], None] = helpers_shared._index_document(hint)
-        else:
-            self._hint = hint
-
-        self._filter = filter
-        self._collation = collation
-        self._namespace = namespace
-
-    def __eq__(self, other: Any) -> bool:
-        if type(other) == type(self):
-            return (
-                other._filter,
-                other._collation,
-                other._hint,
-                other._namespace,
-            ) == (
-                self._filter,
-                self._collation,
-                self._hint,
-                self._namespace,
-            )
-        return NotImplemented
-
-    def __ne__(self, other: Any) -> bool:
-        return not self == other
-
-    def __repr__(self) -> str:
-        if self._namespace:
-            return "{}({!r}, {!r}, {!r}, {!r})".format(
-                self.__class__.__name__,
-                self._filter,
-                self._collation,
-                self._hint,
-                self._namespace,
-            )
-        return f"{self.__class__.__name__}({self._filter!r}, {self._collation!r}, {self._hint!r})"
-
-
-class DeleteOne(_DeleteOp):
+class DeleteOne:
     """Represents a delete_one operation."""
 
-    __slots__ = ()
+    __slots__ = ("_filter", "_collation", "_hint")
 
     def __init__(
         self,
         filter: Mapping[str, Any],
         collation: Optional[_CollationIn] = None,
         hint: Optional[_IndexKeyHint] = None,
-        namespace: Optional[str] = None,
     ) -> None:
         """Create a DeleteOne instance.
 
-        For use with :meth:`~pymongo.asynchronous.collection.AsyncCollection.bulk_write`, :meth:`~pymongo.collection.Collection.bulk_write`,
-        :meth:`~pymongo.asynchronous.mongo_client.AsyncMongoClient.bulk_write` and :meth:`~pymongo.mongo_client.MongoClient.bulk_write`.
+        For use with :meth:`~pymongo.collection.Collection.bulk_write`.
 
         :param filter: A query that matches the document to delete.
         :param collation: An instance of
@@ -216,22 +128,26 @@ class DeleteOne(_DeleteOp):
         :param hint: An index to use to support the query
             predicate specified either by its string name, or in the same
             format as passed to
-            :meth:`~pymongo.asynchronous.collection.AsyncCollection.create_index` or :meth:`~pymongo.collection.Collection.create_index` (e.g.
+            :meth:`~pymongo.collection.Collection.create_index` (e.g.
             ``[('field', ASCENDING)]``). This option is only supported on
             MongoDB 4.4 and above.
-        :param namespace: (optional) The namespace in which to delete a document.
 
-        .. versionchanged:: 4.9
-           Added the `namespace` option to support `MongoClient.bulk_write`.
         .. versionchanged:: 3.11
            Added the ``hint`` option.
         .. versionchanged:: 3.5
            Added the `collation` option.
         """
-        super().__init__(filter, collation, hint, namespace)
+        if filter is not None:
+            validate_is_mapping("filter", filter)
+        if hint is not None and not isinstance(hint, str):
+            self._hint: Union[str, dict[str, Any], None] = helpers._index_document(hint)
+        else:
+            self._hint = hint
+        self._filter = filter
+        self._collation = collation
 
-    def _add_to_bulk(self, bulkobj: _AgnosticBulk) -> None:
-        """Add this operation to the _AsyncBulk/_Bulk instance `bulkobj`."""
+    def _add_to_bulk(self, bulkobj: _Bulk) -> None:
+        """Add this operation to the _Bulk instance `bulkobj`."""
         bulkobj.add_delete(
             self._filter,
             1,
@@ -239,37 +155,36 @@ class DeleteOne(_DeleteOp):
             hint=self._hint,
         )
 
-    def _add_to_client_bulk(self, bulkobj: _AgnosticClientBulk) -> None:
-        """Add this operation to the _AsyncClientBulk/_ClientBulk instance `bulkobj`."""
-        if not self._namespace:
-            raise InvalidOperation(
-                "MongoClient.bulk_write requires a namespace to be provided for each write operation"
+    def __repr__(self) -> str:
+        return f"DeleteOne({self._filter!r}, {self._collation!r}, {self._hint!r})"
+
+    def __eq__(self, other: Any) -> bool:
+        if type(other) == type(self):
+            return (other._filter, other._collation, other._hint) == (
+                self._filter,
+                self._collation,
+                self._hint,
             )
-        bulkobj.add_delete(
-            self._namespace,
-            self._filter,
-            multi=False,
-            collation=validate_collation_or_none(self._collation),
-            hint=self._hint,
-        )
+        return NotImplemented
+
+    def __ne__(self, other: Any) -> bool:
+        return not self == other
 
 
-class DeleteMany(_DeleteOp):
+class DeleteMany:
     """Represents a delete_many operation."""
 
-    __slots__ = ()
+    __slots__ = ("_filter", "_collation", "_hint")
 
     def __init__(
         self,
         filter: Mapping[str, Any],
         collation: Optional[_CollationIn] = None,
         hint: Optional[_IndexKeyHint] = None,
-        namespace: Optional[str] = None,
     ) -> None:
         """Create a DeleteMany instance.
 
-        For use with :meth:`~pymongo.asynchronous.collection.AsyncCollection.bulk_write`, :meth:`~pymongo.collection.Collection.bulk_write`,
-        :meth:`~pymongo.asynchronous.mongo_client.AsyncMongoClient.bulk_write` and :meth:`~pymongo.mongo_client.MongoClient.bulk_write`.
+        For use with :meth:`~pymongo.collection.Collection.bulk_write`.
 
         :param filter: A query that matches the documents to delete.
         :param collation: An instance of
@@ -277,22 +192,26 @@ class DeleteMany(_DeleteOp):
         :param hint: An index to use to support the query
             predicate specified either by its string name, or in the same
             format as passed to
-            :meth:`~pymongo.asynchronous.collection.AsyncCollection.create_index` or :meth:`~pymongo.collection.Collection.create_index` (e.g.
+            :meth:`~pymongo.collection.Collection.create_index` (e.g.
             ``[('field', ASCENDING)]``). This option is only supported on
             MongoDB 4.4 and above.
-        :param namespace: (optional) The namespace in which to delete documents.
 
-        .. versionchanged:: 4.9
-           Added the `namespace` option to support `MongoClient.bulk_write`.
         .. versionchanged:: 3.11
            Added the ``hint`` option.
         .. versionchanged:: 3.5
            Added the `collation` option.
         """
-        super().__init__(filter, collation, hint, namespace)
+        if filter is not None:
+            validate_is_mapping("filter", filter)
+        if hint is not None and not isinstance(hint, str):
+            self._hint: Union[str, dict[str, Any], None] = helpers._index_document(hint)
+        else:
+            self._hint = hint
+        self._filter = filter
+        self._collation = collation
 
-    def _add_to_bulk(self, bulkobj: _AgnosticBulk) -> None:
-        """Add this operation to the _AsyncBulk/_Bulk instance `bulkobj`."""
+    def _add_to_bulk(self, bulkobj: _Bulk) -> None:
+        """Add this operation to the _Bulk instance `bulkobj`."""
         bulkobj.add_delete(
             self._filter,
             0,
@@ -300,32 +219,26 @@ class DeleteMany(_DeleteOp):
             hint=self._hint,
         )
 
-    def _add_to_client_bulk(self, bulkobj: _AgnosticClientBulk) -> None:
-        """Add this operation to the _AsyncClientBulk/_ClientBulk instance `bulkobj`."""
-        if not self._namespace:
-            raise InvalidOperation(
-                "MongoClient.bulk_write requires a namespace to be provided for each write operation"
+    def __repr__(self) -> str:
+        return f"DeleteMany({self._filter!r}, {self._collation!r}, {self._hint!r})"
+
+    def __eq__(self, other: Any) -> bool:
+        if type(other) == type(self):
+            return (other._filter, other._collation, other._hint) == (
+                self._filter,
+                self._collation,
+                self._hint,
             )
-        bulkobj.add_delete(
-            self._namespace,
-            self._filter,
-            multi=True,
-            collation=validate_collation_or_none(self._collation),
-            hint=self._hint,
-        )
+        return NotImplemented
+
+    def __ne__(self, other: Any) -> bool:
+        return not self == other
 
 
 class ReplaceOne(Generic[_DocumentType]):
     """Represents a replace_one operation."""
 
-    __slots__ = (
-        "_filter",
-        "_doc",
-        "_upsert",
-        "_collation",
-        "_hint",
-        "_namespace",
-    )
+    __slots__ = ("_filter", "_doc", "_upsert", "_collation", "_hint")
 
     def __init__(
         self,
@@ -334,12 +247,10 @@ class ReplaceOne(Generic[_DocumentType]):
         upsert: bool = False,
         collation: Optional[_CollationIn] = None,
         hint: Optional[_IndexKeyHint] = None,
-        namespace: Optional[str] = None,
     ) -> None:
         """Create a ReplaceOne instance.
 
-        For use with :meth:`~pymongo.asynchronous.collection.AsyncCollection.bulk_write`, :meth:`~pymongo.collection.Collection.bulk_write`,
-        :meth:`~pymongo.asynchronous.mongo_client.AsyncMongoClient.bulk_write` and :meth:`~pymongo.mongo_client.MongoClient.bulk_write`.
+        For use with :meth:`~pymongo.collection.Collection.bulk_write`.
 
         :param filter: A query that matches the document to replace.
         :param replacement: The new document.
@@ -350,13 +261,10 @@ class ReplaceOne(Generic[_DocumentType]):
         :param hint: An index to use to support the query
             predicate specified either by its string name, or in the same
             format as passed to
-            :meth:`~pymongo.asynchronous.collection.AsyncCollection.create_index` or :meth:`~pymongo.collection.Collection.create_index` (e.g.
+            :meth:`~pymongo.collection.Collection.create_index` (e.g.
             ``[('field', ASCENDING)]``). This option is only supported on
             MongoDB 4.2 and above.
-        :param namespace: (optional) The namespace in which to replace a document.
 
-        .. versionchanged:: 4.9
-           Added the `namespace` option to support `MongoClient.bulk_write`.
         .. versionchanged:: 3.11
            Added the ``hint`` option.
         .. versionchanged:: 3.5
@@ -367,34 +275,17 @@ class ReplaceOne(Generic[_DocumentType]):
         if upsert is not None:
             validate_boolean("upsert", upsert)
         if hint is not None and not isinstance(hint, str):
-            self._hint: Union[str, dict[str, Any], None] = helpers_shared._index_document(hint)
+            self._hint: Union[str, dict[str, Any], None] = helpers._index_document(hint)
         else:
             self._hint = hint
-
         self._filter = filter
         self._doc = replacement
         self._upsert = upsert
         self._collation = collation
-        self._namespace = namespace
 
-    def _add_to_bulk(self, bulkobj: _AgnosticBulk) -> None:
-        """Add this operation to the _AsyncBulk/_Bulk instance `bulkobj`."""
+    def _add_to_bulk(self, bulkobj: _Bulk) -> None:
+        """Add this operation to the _Bulk instance `bulkobj`."""
         bulkobj.add_replace(
-            self._filter,
-            self._doc,
-            self._upsert,
-            collation=validate_collation_or_none(self._collation),
-            hint=self._hint,
-        )
-
-    def _add_to_client_bulk(self, bulkobj: _AgnosticClientBulk) -> None:
-        """Add this operation to the _AsyncClientBulk/_ClientBulk instance `bulkobj`."""
-        if not self._namespace:
-            raise InvalidOperation(
-                "MongoClient.bulk_write requires a namespace to be provided for each write operation"
-            )
-        bulkobj.add_replace(
-            self._namespace,
             self._filter,
             self._doc,
             self._upsert,
@@ -410,14 +301,12 @@ class ReplaceOne(Generic[_DocumentType]):
                 other._upsert,
                 other._collation,
                 other._hint,
-                other._namespace,
             ) == (
                 self._filter,
                 self._doc,
                 self._upsert,
                 self._collation,
                 other._hint,
-                self._namespace,
             )
         return NotImplemented
 
@@ -425,16 +314,6 @@ class ReplaceOne(Generic[_DocumentType]):
         return not self == other
 
     def __repr__(self) -> str:
-        if self._namespace:
-            return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-                self.__class__.__name__,
-                self._filter,
-                self._doc,
-                self._upsert,
-                self._collation,
-                self._hint,
-                self._namespace,
-            )
         return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             self._filter,
@@ -448,25 +327,16 @@ class ReplaceOne(Generic[_DocumentType]):
 class _UpdateOp:
     """Private base class for update operations."""
 
-    __slots__ = (
-        "_filter",
-        "_doc",
-        "_upsert",
-        "_collation",
-        "_array_filters",
-        "_hint",
-        "_namespace",
-    )
+    __slots__ = ("_filter", "_doc", "_upsert", "_collation", "_array_filters", "_hint")
 
     def __init__(
         self,
         filter: Mapping[str, Any],
         doc: Union[Mapping[str, Any], _Pipeline],
-        upsert: Optional[bool],
+        upsert: bool,
         collation: Optional[_CollationIn],
         array_filters: Optional[list[Mapping[str, Any]]],
         hint: Optional[_IndexKeyHint],
-        namespace: Optional[str],
     ):
         if filter is not None:
             validate_is_mapping("filter", filter)
@@ -475,7 +345,7 @@ class _UpdateOp:
         if array_filters is not None:
             validate_list("array_filters", array_filters)
         if hint is not None and not isinstance(hint, str):
-            self._hint: Union[str, dict[str, Any], None] = helpers_shared._index_document(hint)
+            self._hint: Union[str, dict[str, Any], None] = helpers._index_document(hint)
         else:
             self._hint = hint
 
@@ -484,7 +354,6 @@ class _UpdateOp:
         self._upsert = upsert
         self._collation = collation
         self._array_filters = array_filters
-        self._namespace = namespace
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
@@ -495,7 +364,6 @@ class _UpdateOp:
                 other._collation,
                 other._array_filters,
                 other._hint,
-                other._namespace,
             ) == (
                 self._filter,
                 self._doc,
@@ -503,25 +371,10 @@ class _UpdateOp:
                 self._collation,
                 self._array_filters,
                 self._hint,
-                self._namespace,
             )
         return NotImplemented
 
-    def __ne__(self, other: Any) -> bool:
-        return not self == other
-
     def __repr__(self) -> str:
-        if self._namespace:
-            return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-                self.__class__.__name__,
-                self._filter,
-                self._doc,
-                self._upsert,
-                self._collation,
-                self._array_filters,
-                self._hint,
-                self._namespace,
-            )
         return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             self._filter,
@@ -542,16 +395,14 @@ class UpdateOne(_UpdateOp):
         self,
         filter: Mapping[str, Any],
         update: Union[Mapping[str, Any], _Pipeline],
-        upsert: Optional[bool] = None,
+        upsert: bool = False,
         collation: Optional[_CollationIn] = None,
         array_filters: Optional[list[Mapping[str, Any]]] = None,
         hint: Optional[_IndexKeyHint] = None,
-        namespace: Optional[str] = None,
     ) -> None:
         """Represents an update_one operation.
 
-        For use with :meth:`~pymongo.asynchronous.collection.AsyncCollection.bulk_write`, :meth:`~pymongo.collection.Collection.bulk_write`,
-        :meth:`~pymongo.asynchronous.mongo_client.AsyncMongoClient.bulk_write` and :meth:`~pymongo.mongo_client.MongoClient.bulk_write`.
+        For use with :meth:`~pymongo.collection.Collection.bulk_write`.
 
         :param filter: A query that matches the document to update.
         :param update: The modifications to apply.
@@ -564,13 +415,10 @@ class UpdateOne(_UpdateOp):
         :param hint: An index to use to support the query
             predicate specified either by its string name, or in the same
             format as passed to
-            :meth:`~pymongo.asynchronous.collection.AsyncCollection.create_index` or :meth:`~pymongo.collection.Collection.create_index` (e.g.
+            :meth:`~pymongo.collection.Collection.create_index` (e.g.
             ``[('field', ASCENDING)]``). This option is only supported on
             MongoDB 4.2 and above.
-        :param namespace: (optional) The namespace in which to update a document.
 
-        .. versionchanged:: 4.9
-           Added the `namespace` option to support `MongoClient.bulk_write`.
         .. versionchanged:: 3.11
            Added the `hint` option.
         .. versionchanged:: 3.9
@@ -580,28 +428,11 @@ class UpdateOne(_UpdateOp):
         .. versionchanged:: 3.5
            Added the `collation` option.
         """
-        super().__init__(filter, update, upsert, collation, array_filters, hint, namespace)
+        super().__init__(filter, update, upsert, collation, array_filters, hint)
 
-    def _add_to_bulk(self, bulkobj: _AgnosticBulk) -> None:
-        """Add this operation to the _AsyncBulk/_Bulk instance `bulkobj`."""
+    def _add_to_bulk(self, bulkobj: _Bulk) -> None:
+        """Add this operation to the _Bulk instance `bulkobj`."""
         bulkobj.add_update(
-            self._filter,
-            self._doc,
-            False,
-            bool(self._upsert),
-            collation=validate_collation_or_none(self._collation),
-            array_filters=self._array_filters,
-            hint=self._hint,
-        )
-
-    def _add_to_client_bulk(self, bulkobj: _AgnosticClientBulk) -> None:
-        """Add this operation to the _AsyncClientBulk/_ClientBulk instance `bulkobj`."""
-        if not self._namespace:
-            raise InvalidOperation(
-                "MongoClient.bulk_write requires a namespace to be provided for each write operation"
-            )
-        bulkobj.add_update(
-            self._namespace,
             self._filter,
             self._doc,
             False,
@@ -621,16 +452,14 @@ class UpdateMany(_UpdateOp):
         self,
         filter: Mapping[str, Any],
         update: Union[Mapping[str, Any], _Pipeline],
-        upsert: Optional[bool] = None,
+        upsert: bool = False,
         collation: Optional[_CollationIn] = None,
         array_filters: Optional[list[Mapping[str, Any]]] = None,
         hint: Optional[_IndexKeyHint] = None,
-        namespace: Optional[str] = None,
     ) -> None:
         """Create an UpdateMany instance.
 
-        For use with :meth:`~pymongo.asynchronous.collection.AsyncCollection.bulk_write`, :meth:`~pymongo.collection.Collection.bulk_write`,
-        :meth:`~pymongo.asynchronous.mongo_client.AsyncMongoClient.bulk_write` and :meth:`~pymongo.mongo_client.MongoClient.bulk_write`.
+        For use with :meth:`~pymongo.collection.Collection.bulk_write`.
 
         :param filter: A query that matches the documents to update.
         :param update: The modifications to apply.
@@ -643,13 +472,10 @@ class UpdateMany(_UpdateOp):
         :param hint: An index to use to support the query
             predicate specified either by its string name, or in the same
             format as passed to
-            :meth:`~pymongo.asynchronous.collection.AsyncCollection.create_index` or :meth:`~pymongo.collection.Collection.create_index` (e.g.
+            :meth:`~pymongo.collection.Collection.create_index` (e.g.
             ``[('field', ASCENDING)]``). This option is only supported on
             MongoDB 4.2 and above.
-        :param namespace: (optional) The namespace in which to update documents.
 
-        .. versionchanged:: 4.9
-           Added the `namespace` option to support `MongoClient.bulk_write`.
         .. versionchanged:: 3.11
            Added the `hint` option.
         .. versionchanged:: 3.9
@@ -659,28 +485,11 @@ class UpdateMany(_UpdateOp):
         .. versionchanged:: 3.5
            Added the `collation` option.
         """
-        super().__init__(filter, update, upsert, collation, array_filters, hint, namespace)
+        super().__init__(filter, update, upsert, collation, array_filters, hint)
 
-    def _add_to_bulk(self, bulkobj: _AgnosticBulk) -> None:
-        """Add this operation to the _AsyncBulk/_Bulk instance `bulkobj`."""
+    def _add_to_bulk(self, bulkobj: _Bulk) -> None:
+        """Add this operation to the _Bulk instance `bulkobj`."""
         bulkobj.add_update(
-            self._filter,
-            self._doc,
-            True,
-            bool(self._upsert),
-            collation=validate_collation_or_none(self._collation),
-            array_filters=self._array_filters,
-            hint=self._hint,
-        )
-
-    def _add_to_client_bulk(self, bulkobj: _AgnosticClientBulk) -> None:
-        """Add this operation to the _AsyncClientBulk/_ClientBulk instance `bulkobj`."""
-        if not self._namespace:
-            raise InvalidOperation(
-                "MongoClient.bulk_write requires a namespace to be provided for each write operation"
-            )
-        bulkobj.add_update(
-            self._namespace,
             self._filter,
             self._doc,
             True,
@@ -699,7 +508,7 @@ class IndexModel:
     def __init__(self, keys: _IndexKeyHint, **kwargs: Any) -> None:
         """Create an Index instance.
 
-        For use with :meth:`~pymongo.asynchronous.collection.AsyncCollection.create_indexes` and :meth:`~pymongo.collection.Collection.create_indexes`.
+        For use with :meth:`~pymongo.collection.Collection.create_indexes`.
 
         Takes either a single key or a list containing (key, direction) pairs
         or keys.  If no direction is given, :data:`~pymongo.ASCENDING` will
@@ -788,7 +597,7 @@ class SearchIndexModel:
     ) -> None:
         """Create a Search Index instance.
 
-        For use with :meth:`~pymongo.collection.AsyncCollection.create_search_index` and :meth:`~pymongo.collection.AsyncCollection.create_search_indexes`.
+        For use with :meth:`~pymongo.collection.Collection.create_search_index` and :meth:`~pymongo.collection.Collection.create_search_indexes`.
 
         :param definition: The definition for this index.
         :param name: The name for this index, if present.
