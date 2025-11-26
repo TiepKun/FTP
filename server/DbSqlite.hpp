@@ -26,6 +26,11 @@ public:
                     const string &remote_ip,
                     string &err) override;
 
+    bool create_user(const string &username,
+                     const string &password_hash,
+                     uint64_t quota_bytes,
+                     string &err) override;
+
 private:
     string db_path_;
     sqlite3 *db_ = nullptr;

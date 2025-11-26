@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fstream>
+#include <mutex>
 
 using namespace std;
 using namespace proto;
@@ -31,6 +32,9 @@ bool ClientSession::handle_command(const string &line) {
 
     if (cmd == "AUTH") {
         return cmd_auth(tokens);
+    }
+    if (cmd == "REGISTER") {
+        return cmd_register(tokens);
     }
 
     if (!ensure_authenticated()) return false;
@@ -88,6 +92,52 @@ bool ClientSession::cmd_auth(const vector<string> &tokens) {
     server_.db().insert_log(user_id_, "login", "Login success", "0.0.0.0", err);
 
     send_line(sockfd_, "OK 200 Authenticated");
+    return true;
+}
+
+bool ClientSession::cmd_register(const vector<string> &tokens) {
+    if (tokens.size() < 3) {
+        send_line(sockfd_, "ERR 400 Usage: REGISTER <user> <pass>");
+        return true;
+    }
+
+    string user = tokens[1];
+    string pass = tokens[2];
+
+    UserRecord rec;
+    string err;
+    if (server_.db().get_user_by_username(user, rec, err)) {
+        send_line(sockfd_, "ERR 409 User already exists");
+        return true;
+    }
+    if (!err.empty()) {
+        send_line(sockfd_, "ERR 500 DB error: " + err);
+        return true;
+    }
+
+    const uint64_t default_quota = 100ull * 1024ull * 1024ull; // 100 MB
+    if (!server_.db().create_user(user, pass, default_quota, err)) {
+        if (err.find("UNIQUE") != string::npos) {
+            send_line(sockfd_, "ERR 409 User already exists");
+        } else {
+            send_line(sockfd_, "ERR 500 DB error: " + err);
+        }
+        return true;
+    }
+
+    static mutex file_mtx;
+    {
+        lock_guard<mutex> lock(file_mtx);
+        ofstream ofs("user_account.txt", ios::app);
+        if (!ofs) {
+            send_line(sockfd_, "ERR 500 Cannot open user_account.txt");
+            return true;
+        }
+        ofs << user << " " << pass << "\n";
+    }
+
+    server_.logger().log(user, "REGISTER success");
+    send_line(sockfd_, "OK 201 Registered");
     return true;
 }
 

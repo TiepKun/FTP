@@ -15,6 +15,7 @@ public:
 private:
     bool handle_command(const string &line);
     bool cmd_auth(const vector<string> &tokens);
+    bool cmd_register(const vector<string> &tokens);
     bool cmd_upload(const vector<string> &tokens);
     bool cmd_download(const vector<string> &tokens);
     bool cmd_get_text(const vector<string> &tokens);

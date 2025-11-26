@@ -133,6 +133,35 @@ bool DbSqlite::update_used_bytes(int user_id,
     return true;
 }
 
+bool DbSqlite::create_user(const string &username,
+                           const string &password_hash,
+                           uint64_t quota_bytes,
+                           string &err) {
+    const char *sql =
+        "INSERT INTO app_user (username, password_hash, quota_bytes, used_bytes) "
+        "VALUES (?, ?, ?, 0);";
+
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        err = sqlite3_errmsg(db_);
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, password_hash.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 3, (sqlite3_int64)quota_bytes);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        err = sqlite3_errmsg(db_);
+        sqlite3_finalize(stmt);
+        return false;
+    }
+    sqlite3_finalize(stmt);
+    return true;
+}
+
 bool DbSqlite::insert_log(int user_id,
                           const string &action,
                           const string &detail,

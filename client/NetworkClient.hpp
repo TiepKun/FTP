@@ -13,6 +13,7 @@ public:
     void close();
 
     bool auth(const string &user, const string &pass, string &err);
+    bool register_user(const string &user, const string &pass, string &err);
     bool get_text(const string &path, string &content, string &err);
     bool put_text(const string &path, const string &content, string &err);
 

@@ -32,4 +32,9 @@ public:
                             const string &detail,
                             const string &remote_ip,
                             string &err) = 0;
+
+    virtual bool create_user(const string &username,
+                             const string &password_hash,
+                             uint64_t quota_bytes,
+                             string &err) = 0;
 };
