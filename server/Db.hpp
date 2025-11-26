@@ -37,4 +37,10 @@ public:
                              const string &password_hash,
                              uint64_t quota_bytes,
                              string &err) = 0;
+
+    virtual bool upsert_file_entry(int owner_id,
+                                   const string &path,
+                                   uint64_t size_bytes,
+                                   bool is_folder,
+                                   string &err) = 0;
 };

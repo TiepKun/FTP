@@ -17,6 +17,8 @@ public:
     void set_limit(const string &user, uint64_t max_bytes);
     bool can_allocate(const string &user, uint64_t additional_bytes);
     void add_usage(const string &user, uint64_t delta);
+    // Điều chỉnh usage với delta âm/dương, trả về giá trị mới (không âm).
+    int64_t adjust_usage(const string &user, int64_t delta);
     uint64_t used(const string &user);
 
 private:

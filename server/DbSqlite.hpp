@@ -31,6 +31,12 @@ public:
                      uint64_t quota_bytes,
                      string &err) override;
 
+    bool upsert_file_entry(int owner_id,
+                           const string &path,
+                           uint64_t size_bytes,
+                           bool is_folder,
+                           string &err) override;
+
 private:
     string db_path_;
     sqlite3 *db_ = nullptr;

@@ -6,9 +6,28 @@
 #include <unistd.h>
 #include <fstream>
 #include <mutex>
+#include <sstream>
+#include <iomanip>
 
 using namespace std;
 using namespace proto;
+
+namespace {
+// Hash mật khẩu đơn giản để tránh lưu plaintext (không dùng cho bảo mật thực tế).
+string hash_password(const string &raw) {
+    std::hash<string> hasher;
+    size_t h = hasher(raw);
+    stringstream ss;
+    ss << hex << h;
+    return ss.str();
+}
+
+bool is_txt_file(const string &path) {
+    const string ext = ".txt";
+    if (path.size() < ext.size()) return false;
+    return path.compare(path.size() - ext.size(), ext.size(), ext) == 0;
+}
+} // namespace
 
 ClientSession::ClientSession(int sockfd, FileServer &server)
     : sockfd_(sockfd),
@@ -81,6 +100,14 @@ bool ClientSession::cmd_auth(const vector<string> &tokens) {
         return false;
     }
 
+    // So khớp hash; tạm cho phép chuỗi cũ (plaintext) để tương thích.
+    string pass_hashed = hash_password(pass);
+    if (!(pass_hashed == rec.password_hash || pass == rec.password_hash)) {
+        server_.logger().log(user, "Login failed (wrong password)");
+        send_line(sockfd_, "ERR 403 Invalid credentials");
+        return false;
+    }
+
     authenticated_ = true;
     username_      = rec.username;
     user_id_       = rec.id;
@@ -116,7 +143,9 @@ bool ClientSession::cmd_register(const vector<string> &tokens) {
     }
 
     const uint64_t default_quota = 100ull * 1024ull * 1024ull; // 100 MB
-    if (!server_.db().create_user(user, pass, default_quota, err)) {
+    string pass_hashed = hash_password(pass);
+
+    if (!server_.db().create_user(user, pass_hashed, default_quota, err)) {
         if (err.find("UNIQUE") != string::npos) {
             send_line(sockfd_, "ERR 409 User already exists");
         } else {
@@ -133,7 +162,8 @@ bool ClientSession::cmd_register(const vector<string> &tokens) {
             send_line(sockfd_, "ERR 500 Cannot open user_account.txt");
             return true;
         }
-        ofs << user << " " << pass << "\n";
+        // Lưu username + hash (không lưu plaintext).
+        ofs << user << " " << pass_hashed << "\n";
     }
 
     server_.logger().log(user, "REGISTER success");
@@ -156,13 +186,16 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
     string rel_path = tokens[1];
     uint64_t size   = stoull(tokens[2]);
 
-    if (!server_.quota_mgr().can_allocate(username_, size)) {
+    string base_dir  = server_.root_dir() + "/" + username_;
+    string full_path = base_dir + "/" + rel_path;
+    uint64_t old_size = file_size(full_path);
+    uint64_t additional = size > old_size ? size - old_size : 0;
+
+    if (!server_.quota_mgr().can_allocate(username_, additional)) {
         send_line(sockfd_, "ERR 403 Quota exceeded");
         return true;
     }
 
-    string base_dir  = server_.root_dir() + "/" + username_;
-    string full_path = base_dir + "/" + rel_path;
     string tmp_path  = full_path + ".tmp";
 
     ::mkdir(server_.root_dir().c_str(), 0755);
@@ -197,11 +230,14 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
     ofs.close();
 
     ::rename(tmp_path.c_str(), full_path.c_str());
-    server_.quota_mgr().add_usage(username_, size);
+    int64_t delta = static_cast<int64_t>(size) - static_cast<int64_t>(old_size);
+    server_.quota_mgr().adjust_usage(username_, delta);
 
     string err;
     uint64_t used = server_.quota_mgr().used(username_);
     server_.db().update_used_bytes(user_id_, used, err);
+    // Lưu metadata file (kích thước, đường dẫn) để thống kê.
+    server_.db().upsert_file_entry(user_id_, rel_path, size, false, err);
 
     server_.logger().log(username_, "UPLOAD " + rel_path + " size=" + to_string(size));
     send_line(sockfd_, "OK 200 Upload completed");
@@ -259,6 +295,11 @@ bool ClientSession::cmd_get_text(const vector<string> &tokens) {
     }
 
     string rel_path  = tokens[1];
+    if (!is_txt_file(rel_path)) {
+        send_line(sockfd_, "ERR 415 Only .txt allowed");
+        return true;
+    }
+
     string full_path = server_.root_dir() + "/" + username_ + "/" + rel_path;
 
     ifstream ifs(full_path);
@@ -287,15 +328,23 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
     }
 
     string rel_path = tokens[1];
+    if (!is_txt_file(rel_path)) {
+        send_line(sockfd_, "ERR 415 Only .txt allowed");
+        return true;
+    }
+
     uint64_t size   = stoull(tokens[2]);
 
-    if (!server_.quota_mgr().can_allocate(username_, size)) {
+    string base_dir  = server_.root_dir() + "/" + username_;
+    string full_path = base_dir + "/" + rel_path;
+    uint64_t old_size = file_size(full_path);
+    uint64_t additional = size > old_size ? size - old_size : 0;
+
+    if (!server_.quota_mgr().can_allocate(username_, additional)) {
         send_line(sockfd_, "ERR 403 Quota exceeded");
         return true;
     }
 
-    string base_dir  = server_.root_dir() + "/" + username_;
-    string full_path = base_dir + "/" + rel_path;
     string tmp_path  = full_path + ".tmp";
 
     ::mkdir(server_.root_dir().c_str(), 0755);
@@ -330,11 +379,12 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
     ofs.close();
 
     ::rename(tmp_path.c_str(), full_path.c_str());
-    server_.quota_mgr().add_usage(username_, size);
+    int64_t delta = static_cast<int64_t>(size) - static_cast<int64_t>(old_size);
+    int64_t new_used = server_.quota_mgr().adjust_usage(username_, delta);
 
     string err;
-    uint64_t used = server_.quota_mgr().used(username_);
-    server_.db().update_used_bytes(user_id_, used, err);
+    server_.db().update_used_bytes(user_id_, static_cast<uint64_t>(new_used), err);
+    server_.db().upsert_file_entry(user_id_, rel_path, size, false, err);
 
     server_.logger().log(username_, "PUT_TEXT " + rel_path + " size=" + to_string(size));
     send_line(sockfd_, "OK 200 Text file updated");

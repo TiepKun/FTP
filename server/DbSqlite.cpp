@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS audit_log (
     remote_ip   TEXT,
     FOREIGN KEY(user_id) REFERENCES app_user(id) ON DELETE SET NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_file_entry_owner_path
+    ON file_entry(owner_id, path);
 )SQL";
 
     char *errmsg = nullptr;
@@ -186,6 +189,41 @@ bool DbSqlite::insert_log(int user_id,
     sqlite3_bind_text(stmt, 2, action.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, detail.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 4, remote_ip.c_str(), -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        err = sqlite3_errmsg(db_);
+        sqlite3_finalize(stmt);
+        return false;
+    }
+    sqlite3_finalize(stmt);
+    return true;
+}
+
+bool DbSqlite::upsert_file_entry(int owner_id,
+                                 const string &path,
+                                 uint64_t size_bytes,
+                                 bool is_folder,
+                                 string &err) {
+    const char *sql =
+        "INSERT INTO file_entry (owner_id, path, size_bytes, is_folder) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(owner_id, path) DO UPDATE SET "
+        "size_bytes = excluded.size_bytes, "
+        "is_folder = excluded.is_folder, "
+        "updated_at = CURRENT_TIMESTAMP;";
+
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        err = sqlite3_errmsg(db_);
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, owner_id);
+    sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 3, (sqlite3_int64)size_bytes);
+    sqlite3_bind_int(stmt, 4, is_folder ? 1 : 0);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
