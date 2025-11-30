@@ -93,17 +93,13 @@ bool ClientSession::cmd_auth(const vector<string> &tokens) {
         return false;
     }
 
-    // Demo: pass == password_hash
-    if (pass != rec.password_hash) {
-        server_.logger().log(user, "Login failed (wrong password)");
-        send_line(sockfd_, "ERR 403 Invalid credentials");
-        return false;
-    }
-
     // So khớp hash; tạm cho phép chuỗi cũ (plaintext) để tương thích.
     string pass_hashed = hash_password(pass);
     if (!(pass_hashed == rec.password_hash || pass == rec.password_hash)) {
         server_.logger().log(user, "Login failed (wrong password)");
+        // Log chi tiết để kiểm tra sai lệch hash (chỉ để debug).
+        server_.logger().log(user, "Login debug stored=" + rec.password_hash +
+                                      " computed=" + pass_hashed);
         send_line(sockfd_, "ERR 403 Invalid credentials");
         return false;
     }
@@ -157,13 +153,16 @@ bool ClientSession::cmd_register(const vector<string> &tokens) {
     static mutex file_mtx;
     {
         lock_guard<mutex> lock(file_mtx);
-        ofstream ofs("user_account.txt", ios::app);
+        // Ghi credentials (hash) vào file cố định do FileServer thiết lập.
+        const string &account_path = server_.account_file_path();
+        ofstream ofs(account_path, ios::app);
         if (!ofs) {
             send_line(sockfd_, "ERR 500 Cannot open user_account.txt");
             return true;
         }
         // Lưu username + hash (không lưu plaintext).
         ofs << user << " " << pass_hashed << "\n";
+        server_.logger().log(user, "REGISTER wrote credentials to " + account_path);
     }
 
     server_.logger().log(user, "REGISTER success");

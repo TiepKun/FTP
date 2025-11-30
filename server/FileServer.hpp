@@ -3,6 +3,7 @@
 #include <string>
 #include <atomic>
 #include <memory>
+#include <filesystem>
 #include "Logger.hpp"
 #include "QuotaManager.hpp"
 #include "Db.hpp"
@@ -19,6 +20,9 @@ public:
     QuotaManager& quota_mgr() { return quota_mgr_; }
     Db& db() { return *db_; }
 
+    const string& account_file_path() const { return account_file_path_; }
+    const string& log_file_path() const { return log_file_path_; }
+
     void add_bytes_in(uint64_t n)  { bytes_in_  += n; }
     void add_bytes_out(uint64_t n) { bytes_out_ += n; }
     void inc_active()              { ++active_users_; }
@@ -33,6 +37,8 @@ public:
 private:
     string root_dir_;
     int port_;
+    string log_file_path_;
+    string account_file_path_;
     Logger logger_;
     QuotaManager quota_mgr_;
     atomic<uint64_t> bytes_in_{0};

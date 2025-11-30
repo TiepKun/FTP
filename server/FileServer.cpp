@@ -8,13 +8,32 @@
 #include <unistd.h>
 #include <thread>
 #include <iostream>
+#include <filesystem>
 
 using namespace std;
+
+namespace {
+// Chọn đường dẫn log ổn định; cho phép override bằng env để tránh nhầm thư mục.
+string resolve_log_path() {
+    if (const char *p = ::getenv("FS_LOG_PATH")) return string(p);
+    namespace fs = std::filesystem;
+    return (fs::current_path() / "server.log").string();
+}
+
+// Đường dẫn lưu user_account.txt; cho phép override bằng env.
+string resolve_account_path() {
+    if (const char *p = ::getenv("FS_ACCOUNT_PATH")) return string(p);
+    namespace fs = std::filesystem;
+    return (fs::current_path() / "user_account.txt").string();
+}
+} // namespace
 
 FileServer::FileServer(const string &root_dir, int port)
     : root_dir_(root_dir),
       port_(port),
-      logger_("server.log") {
+      log_file_path_(resolve_log_path()),
+      account_file_path_(resolve_account_path()),
+      logger_(log_file_path_) {
 
     db_ = make_unique<DbSqlite>("fileshare.db");
     string err;
