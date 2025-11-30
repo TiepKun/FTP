@@ -1,0 +1,74 @@
+[
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/common.dir/common/Utils.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common/Utils.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common/Utils.cpp",
+  "output": "CMakeFiles/common.dir/common/Utils.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/common.dir/common/Protocol.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common/Protocol.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common/Protocol.cpp",
+  "output": "CMakeFiles/common.dir/common/Protocol.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/fileshare_server.dir/server/main.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/main.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/main.cpp",
+  "output": "CMakeFiles/fileshare_server.dir/server/main.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/fileshare_server.dir/server/FileServer.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/FileServer.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/FileServer.cpp",
+  "output": "CMakeFiles/fileshare_server.dir/server/FileServer.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/fileshare_server.dir/server/ClientSession.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/ClientSession.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/ClientSession.cpp",
+  "output": "CMakeFiles/fileshare_server.dir/server/ClientSession.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/fileshare_server.dir/server/Logger.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/Logger.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/Logger.cpp",
+  "output": "CMakeFiles/fileshare_server.dir/server/Logger.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/fileshare_server.dir/server/QuotaManager.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/QuotaManager.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/QuotaManager.cpp",
+  "output": "CMakeFiles/fileshare_server.dir/server/QuotaManager.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -std=c++17 -o CMakeFiles/fileshare_server.dir/server/DbSqlite.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/DbSqlite.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/DbSqlite.cpp",
+  "output": "CMakeFiles/fileshare_server.dir/server/DbSqlite.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -isystem /usr/include/gtkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gtkmm-3.0/include -isystem /usr/include/giomm-2.4 -isystem /usr/lib/x86_64-linux-gnu/giomm-2.4/include -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/glibmm-2.4 -isystem /usr/lib/x86_64-linux-gnu/glibmm-2.4/include -isystem /usr/include/sigc++-2.0 -isystem /usr/lib/x86_64-linux-gnu/sigc++-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/cairomm-1.0 -isystem /usr/lib/x86_64-linux-gnu/cairomm-1.0/include -isystem /usr/include/pangomm-1.4 -isystem /usr/lib/x86_64-linux-gnu/pangomm-1.4/include -isystem /usr/include/atkmm-1.6 -isystem /usr/lib/x86_64-linux-gnu/atkmm-1.6/include -isystem /usr/include/gtk-3.0/unix-print -isystem /usr/include/gdkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gdkmm-3.0/include -std=c++17 -pthread -o CMakeFiles/fileshare_client.dir/client/main.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/main.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/main.cpp",
+  "output": "CMakeFiles/fileshare_client.dir/client/main.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -isystem /usr/include/gtkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gtkmm-3.0/include -isystem /usr/include/giomm-2.4 -isystem /usr/lib/x86_64-linux-gnu/giomm-2.4/include -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/glibmm-2.4 -isystem /usr/lib/x86_64-linux-gnu/glibmm-2.4/include -isystem /usr/include/sigc++-2.0 -isystem /usr/lib/x86_64-linux-gnu/sigc++-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/cairomm-1.0 -isystem /usr/lib/x86_64-linux-gnu/cairomm-1.0/include -isystem /usr/include/pangomm-1.4 -isystem /usr/lib/x86_64-linux-gnu/pangomm-1.4/include -isystem /usr/include/atkmm-1.6 -isystem /usr/lib/x86_64-linux-gnu/atkmm-1.6/include -isystem /usr/include/gtk-3.0/unix-print -isystem /usr/include/gdkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gdkmm-3.0/include -std=c++17 -pthread -o CMakeFiles/fileshare_client.dir/client/LoginWindow.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/LoginWindow.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/LoginWindow.cpp",
+  "output": "CMakeFiles/fileshare_client.dir/client/LoginWindow.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -isystem /usr/include/gtkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gtkmm-3.0/include -isystem /usr/include/giomm-2.4 -isystem /usr/lib/x86_64-linux-gnu/giomm-2.4/include -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/glibmm-2.4 -isystem /usr/lib/x86_64-linux-gnu/glibmm-2.4/include -isystem /usr/include/sigc++-2.0 -isystem /usr/lib/x86_64-linux-gnu/sigc++-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/cairomm-1.0 -isystem /usr/lib/x86_64-linux-gnu/cairomm-1.0/include -isystem /usr/include/pangomm-1.4 -isystem /usr/lib/x86_64-linux-gnu/pangomm-1.4/include -isystem /usr/include/atkmm-1.6 -isystem /usr/lib/x86_64-linux-gnu/atkmm-1.6/include -isystem /usr/include/gtk-3.0/unix-print -isystem /usr/include/gdkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gdkmm-3.0/include -std=c++17 -pthread -o CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/MainWindow.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/MainWindow.cpp",
+  "output": "CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build",
+  "command": "/usr/bin/c++  -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client -I/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common -isystem /usr/include/gtkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gtkmm-3.0/include -isystem /usr/include/giomm-2.4 -isystem /usr/lib/x86_64-linux-gnu/giomm-2.4/include -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/glibmm-2.4 -isystem /usr/lib/x86_64-linux-gnu/glibmm-2.4/include -isystem /usr/include/sigc++-2.0 -isystem /usr/lib/x86_64-linux-gnu/sigc++-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/cairomm-1.0 -isystem /usr/lib/x86_64-linux-gnu/cairomm-1.0/include -isystem /usr/include/pangomm-1.4 -isystem /usr/lib/x86_64-linux-gnu/pangomm-1.4/include -isystem /usr/include/atkmm-1.6 -isystem /usr/lib/x86_64-linux-gnu/atkmm-1.6/include -isystem /usr/include/gtk-3.0/unix-print -isystem /usr/include/gdkmm-3.0 -isystem /usr/lib/x86_64-linux-gnu/gdkmm-3.0/include -std=c++17 -pthread -o CMakeFiles/fileshare_client.dir/client/NetworkClient.cpp.o -c /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/NetworkClient.cpp",
+  "file": "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/NetworkClient.cpp",
+  "output": "CMakeFiles/fileshare_client.dir/client/NetworkClient.cpp.o"
+}
+]
