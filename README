@@ -1,0 +1,74 @@
+# FileShare (C++/GTKmm)
+
+Ứng dụng chia sẻ/sửa file đơn giản gồm server TCP đa luồng và client GUI (GTKmm). Giao thức dựa trên các lệnh text theo dòng, có hỗ trợ upload/download và chỉnh sửa trực tiếp file .txt.
+
+## Tính năng chính
+- Giao thức dòng: mọi lệnh/response là một dòng kết thúc `\n`, dùng hàm `recv_line`/`send_line`.
+- Giao tiếp socket: wrapper `send_all`/`recv_exact` cho I/O tin cậy, server đa luồng mỗi client một thread.
+- Sửa file `.txt`: lệnh `GET_TEXT` / `PUT_TEXT` kèm kiểm tra đuôi `.txt`, GUI Load/Save.
+- Quota tài khoản: kiểm tra trước khi ghi (tính thêm phần vượt trội nếu ghi đè), lưu usage trong DB.
+- Ghi log: server ghi `server.log` cho đăng nhập, đăng ký, upload/download, text, stats.
+- CSDL metadata: SQLite lưu user, quota, used_bytes, log, và bảng `file_entry` cho file (đường dẫn, kích thước).
+- Thống kê: lệnh `STATS` trả active users, bytes in/out.
+- Đăng ký người dùng: lệnh `REGISTER` tạo tài khoản, lưu hash mật khẩu vào DB và `user_account.txt`.
+
+## Cấu trúc
+- `client/` — GUI (GTKmm 3) và NetworkClient.
+- `server/` — FileServer, ClientSession, SQLite DB wrapper, quota, log.
+- `common/` — Tiện ích và hàm giao thức socket.
+- `CMakeLists.txt` — cấu hình build (xuất `compile_commands.json`).
+
+## Phụ thuộc
+- CMake ≥ 3.16
+- C++17 toolchain
+- gtkmm-3.0
+- SQLite3 dev
+
+## Build
+```bash
+cmake -S . -B build
+cmake --build build
+```
+Nhị phân tạo ra: `build/fileshare_server`, `build/fileshare_client`. VS Code có thể trỏ `compileCommands` vào `build/compile_commands.json` để hết cảnh báo include.
+
+## Chạy
+Server (port mặc định 5051):
+```bash
+./build/fileshare_server 5051
+```
+Client GUI:
+```bash
+./build/fileshare_client
+```
+
+### Đăng ký & đăng nhập
+- Nhập host/port/user/pass.
+- Bấm **Register** để tạo tài khoản (hash đơn giản, quota mặc định 100 MB, thông tin được thêm vào `user_account.txt`).
+- Bấm **Login** để vào cửa sổ chính, Load/Save file `.txt` theo đường dẫn tương đối (tạo nếu chưa có).
+
+## Giao thức (tóm tắt)
+- `REGISTER <user> <pass>` → `OK 201 Registered` hoặc lỗi 409/500.
+- `AUTH <user> <pass>` → `OK 200 Authenticated` hoặc lỗi 403.
+- `GET_TEXT <path>` (chỉ `.txt`) → `OK 100 <size>` + nội dung; lỗi 404/415.
+- `PUT_TEXT <path> <size>` (chỉ `.txt`) → `OK 100 Ready to receive` rồi gửi body; trả `OK 200`.
+- `UPLOAD <path> <size>` → gửi body nhị phân, server lưu file; trả `OK 200`.
+- `DOWNLOAD <path>` → `OK 100 <size>` + body; lỗi 404.
+- `STATS` → `OK 200 active=<n> bytes_in=<..> bytes_out=<..>`.
+
+Mỗi lệnh/response kết thúc `\n`; các hàm `send_all`/`recv_exact` đảm bảo đủ byte cho body.
+
+## Quota & metadata
+- Trước khi ghi: tính dung lượng tăng thêm (nếu ghi đè chỉ tính phần vượt trội). Từ chối khi vượt quota.
+- Sau khi ghi: cập nhật used_bytes và bảng `file_entry` (kích thước, đường dẫn) trong SQLite.
+
+## Logging
+- `server.log` chứa timestamp + user + hành động (auth, register, upload/download, text, stats).
+
+## Bảo mật (lưu ý)
+- Mật khẩu được hash bằng `std::hash` để tránh lưu plaintext; đây không phải hash an toàn cho sản phẩm thực tế. Cần nâng cấp nếu dùng thật.
+
+## Hạn chế hiện tại / TODO
+- Chưa lưu ACL/metadata nâng cao ngoài kích thước/đường dẫn.
+- Hash mật khẩu không đủ mạnh cho môi trường sản xuất.
+- Chưa có xóa file và giải phóng quota.
+- Chưa có đồng bộ/lock per-file khi nhiều client ghi cùng đường dẫn.
