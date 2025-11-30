@@ -14,3 +14,39 @@
 2025-11-30 22:38:37 [tum2] PUT_TEXT user_account.txt size=3
 2025-11-30 22:40:56 [tum2] Login success
 2025-11-30 22:41:45 [tum2] GET_TEXT user_account.txt size=3
+2025-12-01 00:46:26 [tum] Login failed (wrong password)
+2025-12-01 00:46:26 [tum] Login debug stored=a45ffd4b5e0248ab computed=8c039e9e9dfbadf3
+2025-12-01 00:46:37 [tum] Login failed (wrong password)
+2025-12-01 00:46:37 [tum] Login debug stored=a45ffd4b5e0248ab computed=8c039e9e9dfbadf3
+2025-12-01 00:46:49 [tum11] REGISTER wrote credentials to /mnt/c/Users/TumRoyal/Documents/GitHub/FTP/user_account.txt
+2025-12-01 00:46:49 [tum11] REGISTER success
+2025-12-01 00:46:54 [tum11] Login success
+2025-12-01 00:48:27 [tum11] PUT_TEXT user_account.txt size=0
+2025-12-01 00:47:30 [tum11] GET_TEXT user_account.txt size=0
+2025-12-01 00:47:33 [tum11] PUT_TEXT user_account.txt size=8
+2025-12-01 00:48:45 [tum11] PUT_TEXT user_accounttttttttttttt.txt size=13
+2025-12-01 01:13:35 [tum] Login failed (wrong password)
+2025-12-01 01:13:35 [tum] Login debug stored=a45ffd4b5e0248ab computed=8c039e9e9dfbadf3
+2025-12-01 01:13:39 [tum] Login failed (wrong password)
+2025-12-01 01:13:39 [tum] Login debug stored=a45ffd4b5e0248ab computed=71c06c1bd7ff90e2
+2025-12-01 01:13:40 [tum11] Login failed (wrong password)
+2025-12-01 01:13:40 [tum11] Login debug stored=8c039e9e9dfbadf3 computed=71c06c1bd7ff90e2
+2025-12-01 01:14:40 [tum11] Login failed (wrong password)
+2025-12-01 01:14:40 [tum11] Login debug stored=8c039e9e9dfbadf3 computed=71c06c1bd7ff90e2
+2025-12-01 01:13:44 [tum11] Login success
+2025-12-01 01:13:51 [tum11] UPLOAD user_account.txt size=227
+2025-12-01 01:16:34 [tum11] Login success
+2025-12-01 01:16:43 [tum11] UPLOAD test.txt size=135
+2025-12-01 01:16:54 [tum11] GET_TEXT test.txt size=135
+2025-12-01 01:33:23 [tum11] Login failed (wrong password)
+2025-12-01 01:33:23 [tum11] Login debug stored=8c039e9e9dfbadf3 computed=71c06c1bd7ff90e2
+2025-12-01 01:33:25 [tum11] Login success
+2025-12-01 01:33:33 [tum11] GET_TEXT user_accounttttttttttttt.txt size=13
+2025-12-01 01:33:35 [tum11] GET_TEXT test.txt size=135
+2025-12-01 01:33:37 [tum11] GET_TEXT user_accounttttttttttttt.txt size=13
+2025-12-01 01:33:48 [tum11] UPLOAD user_account.txt size=227
+2025-12-01 01:34:24 [tum11] UPLOAD requirements.txt size=159
+2025-12-01 01:34:28 [tum11] GET_TEXT requirements.txt size=159
+2025-12-01 01:34:32 [tum11] PUT_TEXT requirements.txt size=171
+2025-12-01 01:36:25 [tum11] PUT_TEXT requirements.txt size=396
+2025-12-01 01:37:55 [tum11] GET_TEXT user_account.txt size=227

@@ -234,3 +234,35 @@ bool DbSqlite::upsert_file_entry(int owner_id,
     sqlite3_finalize(stmt);
     return true;
 }
+
+bool DbSqlite::list_files(int owner_id, string &paths, string &err) {
+    paths.clear();
+
+    const char *sql =
+        "SELECT path FROM file_entry WHERE owner_id = ? ORDER BY path;";
+
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        err = sqlite3_errmsg(db_);
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, owner_id);
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const char *p = (const char*)sqlite3_column_text(stmt, 0);
+        if (p) {
+            paths += string(p) + "\n";   // mỗi file 1 dòng
+        }
+    }
+
+    if (rc != SQLITE_DONE) {
+        err = sqlite3_errmsg(db_);
+        sqlite3_finalize(stmt);
+        return false;
+    }
+
+    sqlite3_finalize(stmt);
+    return true;
+}

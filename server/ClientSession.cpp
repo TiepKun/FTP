@@ -27,7 +27,7 @@ bool is_txt_file(const string &path) {
     if (path.size() < ext.size()) return false;
     return path.compare(path.size() - ext.size(), ext.size(), ext) == 0;
 }
-} // namespace
+} 
 
 ClientSession::ClientSession(int sockfd, FileServer &server)
     : sockfd_(sockfd),
@@ -63,6 +63,7 @@ bool ClientSession::handle_command(const string &line) {
     if (cmd == "GET_TEXT")  return cmd_get_text(tokens);
     if (cmd == "PUT_TEXT")  return cmd_put_text(tokens);
     if (cmd == "STATS")     return cmd_stats();
+    if (cmd == "LIST_DB")   return cmd_list_db(tokens);
 
     send_line(sockfd_, "ERR 400 Unknown command");
     return true;
@@ -396,5 +397,24 @@ bool ClientSession::cmd_stats() {
                  " bytes_out=" + to_string(server_.bytes_out());
     send_line(sockfd_, msg);
     server_.logger().log(username_, "STATS");
+    return true;
+}
+
+
+bool ClientSession::cmd_list_db(const vector<string> &tokens) {
+    string err;
+    string paths;
+
+    if (!server_.db().list_files(user_id_, paths, err)) {
+        send_line(sockfd_, "ERR 500 DB error: " + err);
+        return true;
+    }
+
+    // Trả số dòng + nội dung
+    int count = 0;
+    for (char c : paths) if (c == '\n') count++;
+
+    send_line(sockfd_, "OK 200 " + to_string(count));
+    send_all(sockfd_, paths.data(), paths.size());  // gửi raw
     return true;
 }

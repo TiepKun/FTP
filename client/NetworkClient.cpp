@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fstream>
+#include <vector>
 
 using namespace std;
 using namespace proto;
@@ -169,4 +171,107 @@ bool NetworkClient::put_text(const string &path, const string &content, string &
     if (line.rfind("OK 200", 0) == 0) return true;
     err = line;
     return false;
+}
+
+
+bool NetworkClient::upload_file(const string &local_path,
+                                const string &remote_path,
+                                string &err) 
+{
+    if (sockfd_ < 0) {
+        err = "Not connected";
+        return false;
+    }
+    // Đọc file trên máy người dùng
+    std::ifstream ifs(local_path, std::ios::binary);
+    if (!ifs) {
+        err = "Cannot open local file";
+        return false;
+    }
+
+    ifs.seekg(0, std::ios::end);
+    uint64_t size = ifs.tellg();
+    ifs.seekg(0);
+
+    // Gửi lệnh UPLOAD lên server
+    string cmd = "UPLOAD " + remote_path + " " + to_string(size);
+    if (!send_line(sockfd_, cmd)) {
+        err = "Send error";
+        return false;
+    }
+
+    string line;
+    if (!recv_line(sockfd_, line)) {
+        err = "No response";
+        return false;
+    }
+
+    if (line != "OK 100 Ready to receive") {
+        err = line;
+        return false;
+    }
+
+    // Gửi dữ liệu file
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+
+    while (true) {
+        ifs.read(buf.data(), BUF);
+        std::streamsize n = ifs.gcount();
+        if (n <= 0) break;
+
+        if (!send_all(sockfd_, buf.data(), (size_t)n)) {
+            err = "Send data error";
+            return false;
+        }
+    }
+
+    // OK, xong
+    if (!recv_line(sockfd_, line)) {
+        err = "No final response";
+        return false;
+    }
+
+    if (line.rfind("OK 200", 0) != 0) {
+        err = line;
+        return false;
+    }
+
+    return true;
+}
+
+bool NetworkClient::list_files_db(string &paths, string &err) {
+    paths.clear();
+
+    if (!send_line(sockfd_, "LIST_DB")) {
+        err = "Send error";
+        return false;
+    }
+
+    string line;
+    if (!recv_line(sockfd_, line)) {
+        err = "No response";
+        return false;
+    }
+
+    auto tok = split_tokens(line);
+    if (tok.size() < 3 || tok[0] != "OK" || tok[1] != "200") {
+        err = line;
+        return false;
+    }
+
+    int count = stoi(tok[2]);
+    uint64_t bytes_expected = 0;
+
+    // vì mỗi dòng kết thúc bằng '\n', total byte chính là tổng chiều dài paths
+    // ta đọc liên tục đến khi nhận được count dòng
+    for (int i = 0; i < count; i++) {
+        if (!recv_line(sockfd_, line)) {
+            err = "Receive error";
+            return false;
+        }
+        paths += line + "\n";
+    }
+
+    return true;
 }

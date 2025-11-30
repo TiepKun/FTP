@@ -1,5 +1,6 @@
 // ===== file: client/MainWindow.cpp =====
 #include "MainWindow.hpp"
+#include <filesystem>
 
 using namespace std;
 
@@ -8,10 +9,11 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
       username_(username),
       vbox_(Gtk::ORIENTATION_VERTICAL),
       btn_load_("Load"),
-      btn_save_("Save") {
-
+      btn_save_("Save"),
+      btn_upload_("Upload")
+{
     set_title("File Share - " + username_);
-    set_default_size(600, 400);
+    set_default_size(800, 500);
 
     add(vbox_);
     vbox_.set_spacing(5);
@@ -20,46 +22,143 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     vbox_.set_margin_left(5);
     vbox_.set_margin_right(5);
 
-    entry_path_.set_placeholder_text("Relative path (e.g. notes.txt)");
+    // ==== Input & buttons ====
+    entry_path_.set_placeholder_text("Relative path on server (e.g. notes.txt)");
 
     Gtk::Box *hbox = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_HORIZONTAL));
     hbox->pack_start(entry_path_, Gtk::PACK_EXPAND_WIDGET);
     hbox->pack_start(btn_load_, Gtk::PACK_SHRINK);
     hbox->pack_start(btn_save_, Gtk::PACK_SHRINK);
+    hbox->pack_start(btn_upload_, Gtk::PACK_SHRINK);
 
     vbox_.pack_start(*hbox, Gtk::PACK_SHRINK);
-    vbox_.pack_start(scroll_, Gtk::PACK_EXPAND_WIDGET);
     vbox_.pack_start(lbl_status_, Gtk::PACK_SHRINK);
 
-    scroll_.add(text_view_);
+    // ==== File list + editor side-by-side ====
+    file_list_store_ = Gtk::ListStore::create(columns_);
+    file_list_view_.set_model(file_list_store_);
+    file_list_view_.append_column("Files", columns_.name);
 
+    file_list_view_.get_selection()->signal_changed().connect(
+        sigc::mem_fun(*this, &MainWindow::on_file_selected));
+
+    Gtk::ScrolledWindow *sw_left = Gtk::manage(new Gtk::ScrolledWindow());
+    sw_left->set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+    sw_left->add(file_list_view_);
+
+    Gtk::ScrolledWindow *sw_right = Gtk::manage(new Gtk::ScrolledWindow());
+    sw_right->set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+    sw_right->add(text_view_);
+
+    Gtk::Paned *paned = Gtk::manage(new Gtk::Paned(Gtk::ORIENTATION_HORIZONTAL));
+    paned->add1(*sw_left);
+    paned->add2(*sw_right);
+
+    vbox_.pack_start(*paned, Gtk::PACK_EXPAND_WIDGET);
+
+    // ==== Connect signals ====
     btn_load_.signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_load_clicked));
     btn_save_.signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_save_clicked));
+    btn_upload_.signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_upload_clicked));
 
     show_all_children();
+    refresh_file_list();     // load file list automatically
 }
 
 void MainWindow::on_btn_load_clicked() {
     string path = entry_path_.get_text();
     string content, err;
+
     if (!client_.get_text(path, content, err)) {
         lbl_status_.set_text("Load failed: " + err);
         return;
     }
+
     text_view_.get_buffer()->set_text(content);
     lbl_status_.set_text("Loaded " + path);
 }
 
 void MainWindow::on_btn_save_clicked() {
     string path = entry_path_.get_text();
-    Glib::RefPtr<Gtk::TextBuffer> buf = text_view_.get_buffer();
-    string content = buf->get_text();
+    string content = text_view_.get_buffer()->get_text();
     string err;
+
     if (!client_.put_text(path, content, err)) {
         lbl_status_.set_text("Save failed: " + err);
         return;
     }
+
     lbl_status_.set_text("Saved " + path);
+}
+
+void MainWindow::on_btn_upload_clicked() {
+    Gtk::FileChooserDialog dialog("Select a text file", Gtk::FILE_CHOOSER_ACTION_OPEN);
+    dialog.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
+    dialog.add_button("_Open", Gtk::RESPONSE_OK);
+
+    auto filter = Gtk::FileFilter::create();
+    filter->set_name("Text files");
+    filter->add_pattern("*.txt");
+    dialog.add_filter(filter);
+
+    if (dialog.run() != Gtk::RESPONSE_OK) {
+        lbl_status_.set_text("Upload canceled");
+        return;
+    }
+
+    string local_path = dialog.get_filename();
+    string remote_path = std::filesystem::path(local_path).filename().string();
+
+    string err;
+    if (!client_.upload_file(local_path, remote_path, err)) {
+        lbl_status_.set_text("Upload failed: " + err);
+        return;
+    }
+
+    lbl_status_.set_text("Uploaded " + remote_path + " successfully");
+    refresh_file_list();
+}
+
+void MainWindow::refresh_file_list() {
+    string paths, err;
+
+    if (!client_.list_files_db(paths, err)) {
+        lbl_status_.set_text("List error: " + err);
+        return;
+    }
+
+    file_list_store_->clear();
+
+    string current;
+    for (char c : paths) {
+        if (c == '\n') {
+            if (!current.empty()) {
+                Gtk::TreeModel::Row row = *(file_list_store_->append());
+                row[columns_.name] = current;
+                current.clear();
+            }
+        } else {
+            current += c;
+        }
+    }
+
+    lbl_status_.set_text("Loaded file list");
+}
+
+void MainWindow::on_file_selected() {
+    auto sel = file_list_view_.get_selection();
+    if (!sel) return;
+
+    auto iter = sel->get_selected();
+    if (!iter) return;
+
+    Glib::ustring name_u = (*iter)[columns_.name];
+    std::string name = name_u.raw();
+
+    entry_path_.set_text(name_u);
+    lbl_status_.set_text("Selected: " + name);
+
 }

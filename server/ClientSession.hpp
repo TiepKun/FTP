@@ -1,5 +1,6 @@
 // ===== file: server/ClientSession.hpp =====
 #pragma once
+#include <cstdint> 
 #include <string>
 #include <vector>
 
@@ -21,6 +22,9 @@ private:
     bool cmd_get_text(const vector<string> &tokens);
     bool cmd_put_text(const vector<string> &tokens);
     bool cmd_stats();
+
+    bool cmd_list_db(const vector<string> &tokens);
+
 
     bool ensure_authenticated();
     uint64_t file_size(const string &path);
