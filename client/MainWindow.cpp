@@ -20,7 +20,7 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     vbox_.set_margin_left(5);
     vbox_.set_margin_right(5);
 
-    entry_path_.set_placeholder_text("Relative path (e.g. notes.txt)");
+    entry_path_.set_placeholder_text("Relative path (e.g. notes.txt)"); //relative path
 
     Gtk::Box *hbox = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_HORIZONTAL));
     hbox->pack_start(entry_path_, Gtk::PACK_EXPAND_WIDGET);

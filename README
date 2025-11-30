@@ -72,3 +72,5 @@ Mỗi lệnh/response kết thúc `\n`; các hàm `send_all`/`recv_exact` đảm
 - Hash mật khẩu không đủ mạnh cho môi trường sản xuất.
 - Chưa có xóa file và giải phóng quota.
 - Chưa có đồng bộ/lock per-file khi nhiều client ghi cùng đường dẫn.
+
+
