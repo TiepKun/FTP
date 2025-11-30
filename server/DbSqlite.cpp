@@ -1,3 +1,4 @@
+// ===== file: server/DbSqlite.cpp =====
 #include "DbSqlite.hpp"
 #include <iostream>
 

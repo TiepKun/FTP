@@ -8,12 +8,12 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/ClientSession.cpp" "CMakeFiles/fileshare_server.dir/server/ClientSession.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/ClientSession.cpp.o.d"
-  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/DbSqlite.cpp" "CMakeFiles/fileshare_server.dir/server/DbSqlite.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/DbSqlite.cpp.o.d"
-  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/FileServer.cpp" "CMakeFiles/fileshare_server.dir/server/FileServer.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/FileServer.cpp.o.d"
-  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/Logger.cpp" "CMakeFiles/fileshare_server.dir/server/Logger.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/Logger.cpp.o.d"
-  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/QuotaManager.cpp" "CMakeFiles/fileshare_server.dir/server/QuotaManager.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/QuotaManager.cpp.o.d"
-  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/server/main.cpp" "CMakeFiles/fileshare_server.dir/server/main.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/main.cpp.o.d"
+  "/Users/tiepnguyen/Downloads/IT4062/FTP/server/ClientSession.cpp" "CMakeFiles/fileshare_server.dir/server/ClientSession.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/ClientSession.cpp.o.d"
+  "/Users/tiepnguyen/Downloads/IT4062/FTP/server/DbSqlite.cpp" "CMakeFiles/fileshare_server.dir/server/DbSqlite.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/DbSqlite.cpp.o.d"
+  "/Users/tiepnguyen/Downloads/IT4062/FTP/server/FileServer.cpp" "CMakeFiles/fileshare_server.dir/server/FileServer.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/FileServer.cpp.o.d"
+  "/Users/tiepnguyen/Downloads/IT4062/FTP/server/Logger.cpp" "CMakeFiles/fileshare_server.dir/server/Logger.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/Logger.cpp.o.d"
+  "/Users/tiepnguyen/Downloads/IT4062/FTP/server/QuotaManager.cpp" "CMakeFiles/fileshare_server.dir/server/QuotaManager.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/QuotaManager.cpp.o.d"
+  "/Users/tiepnguyen/Downloads/IT4062/FTP/server/main.cpp" "CMakeFiles/fileshare_server.dir/server/main.cpp.o" "gcc" "CMakeFiles/fileshare_server.dir/server/main.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

@@ -1,5 +1,4 @@
 // ===== file: server/ClientSession.cpp =====
-#include <cstdint>
 #include "ClientSession.hpp"
 #include "FileServer.hpp"
 #include "../common/Protocol.hpp"
