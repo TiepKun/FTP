@@ -1,0 +1,10 @@
+Bước	                  TransactionAfterAuction.status  	Buyer/AccountTransaction  amount    Seller/AccountTransaction   amount
+Auction đóng	                      PENDING	                            -	             0                   -                 0
+Seller gửi hàng	SHIPPED	              SHIPPED	                        PENDING
+Buyer thanh toán	               PAID	                    WITHDRAW PENDING	   escrow           DEPOSIT PENDING      escrow
+User.balance                                                        balance - escrow                          giữ nguyên
+Giao dịch xong	                       DONE	                        SUCCESS	                                SUCCESS
+User.balance                                                        balance - escrow                       balance + escrow
+Giao dịch hủy	                     CANCELLED	                        FAILED	                                 FAILED
+User.balance                                                           giữ nguyên                               giữ nguyên
+
