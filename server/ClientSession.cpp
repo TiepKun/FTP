@@ -40,8 +40,6 @@ ClientSession::~ClientSession() {
 }
 
 
-
-
 void ClientSession::run() {
     string line;
     while (recv_line(sockfd_, line)) {
@@ -352,15 +350,12 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         send_line(sockfd_, "ERR 400 Usage: PUT_TEXT <path> <size>");
         return true;
     }
-
     string rel_path = tokens[1];
     if (!is_txt_file(rel_path)) {
         send_line(sockfd_, "ERR 415 Only .txt allowed");
         return true;
     }
-
     uint64_t size   = stoull(tokens[2]);
-
     string base_dir  = server_.root_dir() + "/" + username_;
     string full_path = base_dir + "/" + rel_path;
     uint64_t old_size = file_size(full_path);
@@ -370,24 +365,18 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         send_line(sockfd_, "ERR 403 Quota exceeded");
         return true;
     }
-
     string tmp_path  = full_path + ".tmp";
-
     ::mkdir(server_.root_dir().c_str(), 0755);
     ::mkdir(base_dir.c_str(), 0755);
-
     ofstream ofs(tmp_path);
     if (!ofs) {
         send_line(sockfd_, "ERR 500 Cannot open temp file");
         return true;
     }
-
     send_line(sockfd_, "OK 100 Ready to receive");
-
     const size_t BUF_SIZE = 64 * 1024;
     vector<char> buf(BUF_SIZE);
     uint64_t remaining = size;
-
     while (remaining > 0) {
         size_t chunk = remaining > BUF_SIZE ? BUF_SIZE : (size_t)remaining;
         if (!recv_exact(sockfd_, buf.data(), chunk)) {
@@ -403,15 +392,12 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         server_.add_bytes_in(chunk);
     }
     ofs.close();
-
     ::rename(tmp_path.c_str(), full_path.c_str());
     int64_t delta = static_cast<int64_t>(size) - static_cast<int64_t>(old_size);
     int64_t new_used = server_.quota_mgr().adjust_usage(username_, delta);
-
     string err;
     server_.db().update_used_bytes(user_id_, static_cast<uint64_t>(new_used), err);
     server_.db().upsert_file_entry(user_id_, rel_path, size, false, err);
-
     server_.logger().log(username_, "PUT_TEXT " + rel_path + " size=" + to_string(size));
     send_line(sockfd_, "OK 200 Text file updated");
     return true;

@@ -1,4 +1,3 @@
-// ===== file: server/FileServer.cpp =====
 #include "FileServer.hpp"
 #include "ClientSession.hpp"
 #include "DbSqlite.hpp"
