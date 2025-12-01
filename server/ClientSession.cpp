@@ -116,12 +116,11 @@ bool ClientSession::cmd_auth(const vector<string> &tokens) {
         return true;
     }
 
-    // ===================== CHECK ĐĂNG NHẬP TRÙNG =====================
+    //CHECK ĐĂNG NHẬP TRÙNG
     if (!counted_online_ && server_.is_user_online(user)) {
         send_line(sockfd_, "ERR 409 User already logged in");
         return true;      // giữ socket, không đóng
     }
-    // =================================================================
 
     // đánh dấu phiên này đã login
     authenticated_ = true;
@@ -180,21 +179,6 @@ bool ClientSession::cmd_register(const vector<string> &tokens) {
         return true;
     }
 
-    static mutex file_mtx;
-    {
-        lock_guard<mutex> lock(file_mtx);
-        // Ghi credentials (hash) vào file cố định do FileServer thiết lập.
-        const string &account_path = server_.account_file_path();
-        ofstream ofs(account_path, ios::app);
-        if (!ofs) {
-            send_line(sockfd_, "ERR 500 Cannot open user_account.txt");
-            return true;
-        }
-        // Lưu username + hash (không lưu plaintext).
-        ofs << user << " " << pass_hashed << "\n";
-        server_.logger().log(user, "REGISTER wrote credentials to " + account_path);
-    }
-
     server_.logger().log(user, "REGISTER success");
     send_line(sockfd_, "OK 201 Registered");
     return true;
@@ -212,8 +196,21 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
         return true;
     }
 
-    string rel_path = tokens[1];
-    uint64_t size   = stoull(tokens[2]);
+    uint64_t size;
+    try {
+        size = stoull(tokens[1]);      // <== SIZE nằm trước
+    } catch (...) {
+        send_line(sockfd_, "ERR 400 Invalid size");
+        return true;
+    }
+
+    // GHÉP phần còn lại làm path (kể cả có space)
+    string rel_path;
+    for (size_t i = 2; i < tokens.size(); i++) {
+        if (i > 2) rel_path += " ";
+        rel_path += tokens[i];
+    }
+
 
     string base_dir  = server_.root_dir() + "/" + username_;
     string full_path = base_dir + "/" + rel_path;

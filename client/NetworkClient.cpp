@@ -66,8 +66,7 @@ bool NetworkClient::auth(const string &user, const string &pass, string &err) {
     }
 
     if (line.rfind("OK", 0) == 0) return true;
-    err = line;
-    return false;
+    err = line;    return false;
 }
 
 bool NetworkClient::register_user(const string &user, const string &pass, string &err) {
@@ -194,7 +193,7 @@ bool NetworkClient::upload_file(const string &local_path,
     ifs.seekg(0);
 
     // Gửi lệnh UPLOAD lên server
-    string cmd = "UPLOAD " + remote_path + " " + to_string(size);
+    string cmd = "UPLOAD " + to_string(size) + " " + remote_path;
     if (!send_line(sockfd_, cmd)) {
         err = "Send error";
         return false;
