@@ -81,13 +81,30 @@ void FileServer::run() {
         }
 
         thread([this, connfd]() {
-            inc_active();
             ClientSession session(connfd, *this);
             session.run();
-            dec_active();
             close(connfd);
         }).detach();
     }
 
     close(listenfd);
+}
+
+bool FileServer::is_user_online(const std::string &user) {
+    auto it = online_users_.find(user);
+    return it != online_users_.end() && it->second > 0;
+}
+
+void FileServer::user_login(const std::string &user) {
+    online_users_[user]++;
+}
+
+void FileServer::user_logout(const std::string &user) {
+    auto &c = online_users_[user];
+    c--;
+    if (c <= 0) online_users_.erase(user);
+}
+
+int FileServer::online_users_count() const {
+    return online_users_.size();
 }

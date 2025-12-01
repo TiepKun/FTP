@@ -239,7 +239,8 @@ bool DbSqlite::list_files(int owner_id, string &paths, string &err) {
     paths.clear();
 
     const char *sql =
-        "SELECT path FROM file_entry WHERE owner_id = ? ORDER BY path;";
+        "SELECT path, size_bytes FROM file_entry "
+        "WHERE owner_id = ? ORDER BY path;";
 
     sqlite3_stmt *stmt = nullptr;
     int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
@@ -252,8 +253,10 @@ bool DbSqlite::list_files(int owner_id, string &paths, string &err) {
 
     while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
         const char *p = (const char*)sqlite3_column_text(stmt, 0);
+        uint64_t size = sqlite3_column_int64(stmt, 1);
+
         if (p) {
-            paths += string(p) + "\n";   // mỗi file 1 dòng
+            paths += string(p) + "|" + to_string(size) + "\n";
         }
     }
 

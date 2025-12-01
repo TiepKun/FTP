@@ -34,10 +34,23 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     vbox_.pack_start(*hbox, Gtk::PACK_SHRINK);
     vbox_.pack_start(lbl_status_, Gtk::PACK_SHRINK);
 
+    lbl_online_.set_text("Online: ...");
+    vbox_.pack_start(lbl_online_, Gtk::PACK_SHRINK);
+
+    // Cập nhật mỗi 10 giây
+    online_timer_ = Glib::signal_timeout().connect_seconds(
+        sigc::mem_fun(*this, &MainWindow::update_online_count),
+        1
+    );
+
+
+
     // ==== File list + editor side-by-side ====
     file_list_store_ = Gtk::ListStore::create(columns_);
     file_list_view_.set_model(file_list_store_);
-    file_list_view_.append_column("Files", columns_.name);
+    file_list_view_.append_column("File", columns_.name);
+    file_list_view_.append_column("Size (KB)", columns_.size);
+
 
     file_list_view_.get_selection()->signal_changed().connect(
         sigc::mem_fun(*this, &MainWindow::on_file_selected));
@@ -92,6 +105,7 @@ void MainWindow::on_btn_save_clicked() {
     }
 
     lbl_status_.set_text("Saved " + path);
+    refresh_file_list();
 }
 
 void MainWindow::on_btn_upload_clicked() {
@@ -136,8 +150,20 @@ void MainWindow::refresh_file_list() {
     for (char c : paths) {
         if (c == '\n') {
             if (!current.empty()) {
+                // Tách name|size
+                size_t pos = current.find('|');
+                string name = current.substr(0, pos);
+                string size = current.substr(pos + 1);
+
+                // Đổi size bytes -> KB đẹp
+                double kb = atof(size.c_str()) / 1024.0;
+                char buf[32];
+                sprintf(buf, "%.2f KB", kb);
+
                 Gtk::TreeModel::Row row = *(file_list_store_->append());
-                row[columns_.name] = current;
+                row[columns_.name] = name;
+                row[columns_.size] = buf;
+
                 current.clear();
             }
         } else {
@@ -156,9 +182,28 @@ void MainWindow::on_file_selected() {
     if (!iter) return;
 
     Glib::ustring name_u = (*iter)[columns_.name];
-    std::string name = name_u.raw();
+    string name = name_u.raw();
 
-    entry_path_.set_text(name_u);
+    entry_path_.set_text(name);
     lbl_status_.set_text("Selected: " + name);
+}
 
+
+bool MainWindow::update_online_count() {
+    string response, err;
+
+    if (!client_.send_raw_command("STATS", response, err)) {
+        lbl_online_.set_text("Online: ?");
+        return true; // vẫn chạy timer lần sau
+    }
+
+    size_t pos = response.find("online=");
+    if (pos != string::npos) {
+        size_t start = pos + 7;
+        size_t end = response.find(' ', start);
+        string count = response.substr(start, end - start);
+        lbl_online_.set_text("Online: " + count);
+    }
+
+    return true; // quan trọng: TRUE để timer tiếp tục
 }

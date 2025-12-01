@@ -275,3 +275,24 @@ bool NetworkClient::list_files_db(string &paths, string &err) {
 
     return true;
 }
+
+bool NetworkClient::send_raw_command(const string &cmd, string &out, string &err) {
+    if (sockfd_ < 0) {
+        err = "Not connected";
+        return false;
+    }
+
+    // Gửi lệnh
+    if (!send_line(sockfd_, cmd)) {
+        err = "Send error";
+        return false;
+    }
+
+    // Nhận 1 dòng phản hồi
+    if (!recv_line(sockfd_, out)) {
+        err = "No response";
+        return false;
+    }
+
+    return true;
+}

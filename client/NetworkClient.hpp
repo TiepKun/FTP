@@ -21,6 +21,7 @@ public:
                  const string &remote_path,
                  string &err);
     bool list_files_db(string &paths, string &err);
+    bool send_raw_command(const string& cmd, string& out, string& err);
              
 
 private:

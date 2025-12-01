@@ -11,6 +11,7 @@ class FileServer;
 class ClientSession {
 public:
     ClientSession(int sockfd, FileServer &server);
+    ~ClientSession();
     void run();
 
 private:
@@ -21,7 +22,9 @@ private:
     bool cmd_download(const vector<string> &tokens);
     bool cmd_get_text(const vector<string> &tokens);
     bool cmd_put_text(const vector<string> &tokens);
+    bool cmd_logout();
     bool cmd_stats();
+    bool cmd_who();
 
     bool cmd_list_db(const vector<string> &tokens);
 
@@ -34,4 +37,5 @@ private:
     string username_;
     int user_id_ = 0;
     bool authenticated_ = false;
+    bool counted_online_ = false;
 };

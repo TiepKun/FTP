@@ -9,6 +9,7 @@ using namespace std;
 class MainWindow : public Gtk::Window {
 public:
     MainWindow(NetworkClient &&client, const string &username);
+    
 
 protected:
     void on_btn_load_clicked();
@@ -16,6 +17,7 @@ protected:
     void on_btn_upload_clicked();
     void refresh_file_list();
     void on_file_selected();
+    bool update_online_count();
 
     NetworkClient client_;
     string username_;
@@ -29,12 +31,15 @@ protected:
     Gtk::ScrolledWindow scroll_;
     Gtk::TextView text_view_;
     Gtk::Label lbl_status_;
+    Gtk::Label lbl_online_;
 
+    sigc::connection online_timer_;
     // ===== FILE LIST MODEL =====
     class FileModelColumns : public Gtk::TreeModel::ColumnRecord {
     public:
-        FileModelColumns() { add(name); }
+        FileModelColumns() { add(name); add(size); }
         Gtk::TreeModelColumn<Glib::ustring> name;
+         Gtk::TreeModelColumn<Glib::ustring> size;
     };
 
     FileModelColumns columns_;
