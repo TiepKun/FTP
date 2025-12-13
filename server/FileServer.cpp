@@ -47,27 +47,22 @@ void FileServer::run() {
         perror("socket");
         return;
     }
-
     int opt = 1;
     setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
     sockaddr_in addr{};
     addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port        = htons(port_);
-
     if (::bind(listenfd, (sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("bind");
         close(listenfd);
         return;
     }
-
     if (::listen(listenfd, 16) < 0) {
         perror("listen");
         close(listenfd);
         return;
     }
-
     cout << "Server listening on port " << port_ << "\n";
 
     while (true) {
@@ -78,7 +73,6 @@ void FileServer::run() {
             perror("accept");
             continue;
         }
-
         thread([this, connfd]() {
             ClientSession session(connfd, *this);
             session.run();

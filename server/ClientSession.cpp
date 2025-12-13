@@ -374,7 +374,7 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         return true;
     }
     send_line(sockfd_, "OK 100 Ready to receive");
-    const size_t BUF_SIZE = 64 * 1024;
+    const size_t BUF_SIZE = 64 * 1024; //64KB
     vector<char> buf(BUF_SIZE);
     uint64_t remaining = size;
     while (remaining > 0) {
