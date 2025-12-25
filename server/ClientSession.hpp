@@ -27,10 +27,40 @@ private:
     bool cmd_who();
 
     bool cmd_list_db(const vector<string> &tokens);
-
+    
+    // File operations
+    bool cmd_create_folder(const vector<string> &tokens);
+    bool cmd_delete(const vector<string> &tokens);
+    bool cmd_rename(const vector<string> &tokens);
+    bool cmd_move(const vector<string> &tokens);
+    bool cmd_copy(const vector<string> &tokens);
+    bool cmd_restore(const vector<string> &tokens);
+    bool cmd_list_deleted(const vector<string> &tokens);
+    
+    // Pause/Continue
+    bool cmd_pause_upload(const vector<string> &tokens);
+    bool cmd_continue_upload(const vector<string> &tokens);
+    bool cmd_pause_download(const vector<string> &tokens);
+    bool cmd_continue_download(const vector<string> &tokens);
+    
+    // Permissions
+    bool cmd_set_permission(const vector<string> &tokens);
+    bool cmd_check_permission(const vector<string> &tokens);
+    
+    // Unzip
+    bool cmd_unzip(const vector<string> &tokens);
 
     bool ensure_authenticated();
     uint64_t file_size(const string &path);
+    bool check_file_permission(const string &path,
+                               bool need_view,
+                               bool need_download,
+                               bool need_edit,
+                               int &owner_id_out,
+                               string &owner_user_out,
+                               int &file_id_out,
+                               uint64_t &size_out,
+                               bool &is_folder_out);
 
     int sockfd_;
     FileServer &server_;

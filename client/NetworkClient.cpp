@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fstream>
 #include <vector>
+#include <cstdint>
 
 using namespace std;
 using namespace proto;
@@ -224,6 +225,159 @@ bool NetworkClient::upload_file(const string &local_path,
     }
 
     return true;
+}
+
+bool NetworkClient::download_file(const string &remote_path,
+                                  const string &local_path,
+                                  string &err) {
+    if (sockfd_ < 0) {
+        err = "Not connected";
+        return false;
+    }
+
+    string cmd = "DOWNLOAD " + remote_path;
+    if (!send_line(sockfd_, cmd)) {
+        err = "Send error";
+        return false;
+    }
+
+    string line;
+    if (!recv_line(sockfd_, line)) {
+        err = "No response";
+        return false;
+    }
+    auto tok = split_tokens(line);
+    if (tok.size() < 3 || tok[0] != "OK" || tok[1] != "100") {
+        err = line;
+        return false;
+    }
+    uint64_t size = stoull(tok[2]);
+
+    ofstream ofs(local_path, ios::binary);
+    if (!ofs) {
+        err = "Cannot open local path";
+        return false;
+    }
+
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+    uint64_t remaining = size;
+    while (remaining > 0) {
+        size_t chunk = remaining > BUF ? BUF : (size_t)remaining;
+        if (!recv_exact(sockfd_, buf.data(), chunk)) {
+            err = "Receive data error";
+            return false;
+        }
+        ofs.write(buf.data(), (streamsize)chunk);
+        if (!ofs) {
+            err = "Write local file error";
+            return false;
+        }
+        remaining -= chunk;
+    }
+    return true;
+}
+
+bool NetworkClient::pause_upload(const string &remote_path, uint64_t total_size, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "PAUSE_UPLOAD " + remote_path + " " + to_string(total_size);
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::continue_upload(const string &remote_path, const string &local_path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "CONTINUE_UPLOAD " + remote_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    auto tok = split_tokens(line);
+    // Expect: OK 100 Continue from <offset> size <remaining>
+    if (tok.size() < 6 || tok[0] != "OK") { err = line; return false; }
+    uint64_t offset = stoull(tok[3]);
+    uint64_t remaining = stoull(tok[5]);
+
+    ifstream ifs(local_path, ios::binary);
+    if (!ifs) { err = "Cannot open local file"; return false; }
+    ifs.seekg((streamsize)offset);
+
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+    uint64_t sent = 0;
+    while (sent < remaining) {
+        size_t chunk = (remaining - sent) > BUF ? BUF : (size_t)(remaining - sent);
+        ifs.read(buf.data(), (streamsize)chunk);
+        streamsize got = ifs.gcount();
+        if (got <= 0) break;
+        if (!send_all(sockfd_, buf.data(), (size_t)got)) { err = "Send data error"; return false; }
+        sent += (uint64_t)got;
+    }
+
+    if (!recv_line(sockfd_, line)) { err = "No final response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::pause_download(const string &remote_path, uint64_t offset, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "PAUSE_DOWNLOAD " + remote_path + " " + to_string(offset);
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::continue_download(const string &remote_path, const string &local_path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "CONTINUE_DOWNLOAD " + remote_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    auto tok = split_tokens(line);
+    if (tok.size() < 6 || tok[0] != "OK") { err = line; return false; }
+    uint64_t offset = stoull(tok[3]);
+    uint64_t remaining = stoull(tok[5]);
+
+    ofstream ofs(local_path, ios::binary | ios::app);
+    if (!ofs) { err = "Cannot open local file"; return false; }
+
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+    uint64_t received = 0;
+    while (received < remaining) {
+        size_t chunk = (remaining - received) > BUF ? BUF : (size_t)(remaining - received);
+        if (!recv_exact(sockfd_, buf.data(), chunk)) { err = "Receive data error"; return false; }
+        ofs.write(buf.data(), (streamsize)chunk);
+        if (!ofs) { err = "Write local file error"; return false; }
+        received += chunk;
+    }
+    return true;
+}
+
+bool NetworkClient::unzip_remote(const string &zip_path, const string &target_dir, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "UNZIP " + zip_path;
+    if (!target_dir.empty()) cmd += " " + target_dir;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::create_remote_folder(const string &remote_path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "CREATE_FOLDER " + remote_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line;
+    return false;
 }
 
 bool NetworkClient::list_files_db(string &paths, string &err) {
