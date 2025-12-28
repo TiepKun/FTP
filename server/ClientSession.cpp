@@ -685,10 +685,25 @@ bool ClientSession::cmd_delete(const vector<string> &tokens) {
         utils::ensure_dir(trash_path.substr(0, parent_pos));
     }
 
-    // Move file/folder into trash for potential restore
-    if (::rename(full_path.c_str(), trash_path.c_str()) != 0) {
-        send_line(sockfd_, "ERR 500 Move to trash failed");
-        return true;
+    // Move file/folder into trash for potential restore.
+    // Handle existing trash target by removing it, and fallback to copy+remove if rename fails.
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::rename(full_path, trash_path, ec);
+    if (ec) {
+        // If target exists, remove then retry
+        fs::remove_all(trash_path, ec);
+        ec.clear();
+        fs::rename(full_path, trash_path, ec);
+    }
+    if (ec) {
+        // Fallback copy then remove
+        fs::copy(full_path, trash_path, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+        if (ec) {
+            send_line(sockfd_, "ERR 500 Move to trash failed");
+            return true;
+        }
+        fs::remove_all(full_path, ec);
     }
 
     // Update quota if it's a file (not folder)
@@ -1328,6 +1343,69 @@ bool ClientSession::cmd_unzip(const vector<string> &tokens) {
     }
     uint64_t total_extracted = 0;
     int64_t num_entries = 0; // Unknown
+
+    // Scan extracted content to update DB/quota
+    namespace fs = std::filesystem;
+    string extract_root = target_dir.empty() ? base_dir : base_dir + "/" + target_dir;
+
+    auto flatten_single_nested = [](const string &root) {
+        namespace fs = std::filesystem;
+        fs::path rp(root);
+        if (!fs::exists(rp) || !fs::is_directory(rp)) return;
+        size_t count = 0;
+        fs::path only;
+        for (auto &entry : fs::directory_iterator(rp)) {
+            ++count;
+            only = entry.path();
+            if (count > 1) break;
+        }
+        if (count == 1 && fs::is_directory(only)) {
+            for (auto &sub : fs::directory_iterator(only)) {
+                fs::path dest = rp / sub.path().filename();
+                std::error_code ec;
+                fs::rename(sub.path(), dest, ec);
+                if (ec) {
+                    fs::copy(sub.path(), dest, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+                    fs::remove_all(sub.path(), ec);
+                }
+            }
+            std::error_code ec;
+            fs::remove_all(only, ec);
+        }
+    };
+
+    // Avoid double folder level (zip already contains a root folder)
+    flatten_single_nested(extract_root);
+
+    if (utils::ensure_dir(extract_root)) {
+        for (auto &entry : fs::recursive_directory_iterator(extract_root)) {
+            string rel_path = fs::relative(entry.path(), base_dir).generic_string();
+            if (entry.is_directory()) {
+                string err;
+                server_.db().upsert_file_entry(user_id_, rel_path, 0, true, err);
+                num_entries++;
+            } else if (entry.is_regular_file()) {
+                uint64_t sz = (uint64_t)entry.file_size();
+                total_extracted += sz;
+                string err;
+
+                // adjust quota vs previous size
+                int file_id_dummy;
+                uint64_t old_size = 0;
+                bool is_folder = false;
+                bool is_deleted = false;
+                if (server_.db().get_file_entry(user_id_, rel_path, file_id_dummy, old_size, is_folder, is_deleted, err) && !is_deleted) {
+                    int64_t delta = (int64_t)sz - (int64_t)old_size;
+                    server_.quota_mgr().adjust_usage(username_, delta);
+                } else {
+                    server_.quota_mgr().adjust_usage(username_, (int64_t)sz);
+                }
+                server_.db().update_used_bytes(user_id_, server_.quota_mgr().used(username_), err);
+                server_.db().upsert_file_entry(user_id_, rel_path, sz, false, err);
+                num_entries++;
+            }
+        }
+    }
 #endif
     
     string err;

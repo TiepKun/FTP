@@ -49,6 +49,25 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     hbox2->pack_start(btn_resume_down_, Gtk::PACK_SHRINK);
     hbox2->pack_start(entry_unzip_target_, Gtk::PACK_EXPAND_WIDGET);
     vbox_.pack_start(*hbox2, Gtk::PACK_SHRINK);
+
+    Gtk::Box *hbox3 = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_HORIZONTAL));
+    entry_target_.set_placeholder_text("Target path (for rename/move/copy)");
+    hbox3->pack_start(entry_target_, Gtk::PACK_EXPAND_WIDGET);
+    Gtk::Button *btn_create_folder = Gtk::manage(new Gtk::Button("Create Folder"));
+    Gtk::Button *btn_rename = Gtk::manage(new Gtk::Button("Rename"));
+    Gtk::Button *btn_move = Gtk::manage(new Gtk::Button("Move"));
+    Gtk::Button *btn_copy = Gtk::manage(new Gtk::Button("Copy"));
+    Gtk::Button *btn_delete = Gtk::manage(new Gtk::Button("Delete"));
+    Gtk::Button *btn_restore = Gtk::manage(new Gtk::Button("Restore"));
+    Gtk::Button *btn_list_deleted = Gtk::manage(new Gtk::Button("Show Deleted"));
+    hbox3->pack_start(*btn_create_folder, Gtk::PACK_SHRINK);
+    hbox3->pack_start(*btn_rename, Gtk::PACK_SHRINK);
+    hbox3->pack_start(*btn_move, Gtk::PACK_SHRINK);
+    hbox3->pack_start(*btn_copy, Gtk::PACK_SHRINK);
+    hbox3->pack_start(*btn_delete, Gtk::PACK_SHRINK);
+    hbox3->pack_start(*btn_restore, Gtk::PACK_SHRINK);
+    hbox3->pack_start(*btn_list_deleted, Gtk::PACK_SHRINK);
+    vbox_.pack_start(*hbox3, Gtk::PACK_SHRINK);
     vbox_.pack_start(lbl_status_, Gtk::PACK_SHRINK);
 
     lbl_online_.set_text("Online: ...");
@@ -105,6 +124,20 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
         sigc::mem_fun(*this, &MainWindow::on_btn_resume_download_clicked));
     btn_unzip_.signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_unzip_clicked));
+    btn_create_folder->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_create_folder_clicked));
+    btn_rename->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_rename_clicked));
+    btn_move->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_move_clicked));
+    btn_copy->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_copy_clicked));
+    btn_delete->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_delete_clicked));
+    btn_restore->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_restore_clicked));
+    btn_list_deleted->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_list_deleted_clicked));
 
     show_all_children();
     refresh_file_list();     // load file list automatically
@@ -299,6 +332,13 @@ void MainWindow::on_btn_resume_download_clicked() {
 void MainWindow::on_btn_unzip_clicked() {
     string zip_path = entry_path_.get_text();
     string target = entry_unzip_target_.get_text();
+    if (target.empty()) {
+        // If user didn't specify, default to folder named after zip (without .zip)
+        std::filesystem::path p(zip_path);
+        string stem = p.stem().string();
+        if (!stem.empty())
+            target = stem;
+    }
     string err;
     if (!client_.unzip_remote(zip_path, target, err)) {
         lbl_status_.set_text("Unzip failed: " + err);
@@ -306,6 +346,142 @@ void MainWindow::on_btn_unzip_clicked() {
     }
     lbl_status_.set_text("Unzipped on server");
     refresh_file_list();
+}
+
+void MainWindow::on_btn_create_folder_clicked() {
+    // Ask for new folder name
+    Gtk::Dialog dlg("Folder name", *this, true);
+    Gtk::Box *box = dlg.get_content_area();
+    Gtk::Entry entry;
+    entry.set_placeholder_text("New folder name");
+    box->pack_start(entry, Gtk::PACK_EXPAND_WIDGET);
+    dlg.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
+    dlg.add_button("_Create", Gtk::RESPONSE_OK);
+    dlg.show_all_children();
+    if (dlg.run() != Gtk::RESPONSE_OK) {
+        lbl_status_.set_text("Create folder canceled");
+        return;
+    }
+    string name = entry.get_text();
+    if (name.empty()) { lbl_status_.set_text("Folder name required"); return; }
+
+    string base = entry_path_.get_text();
+    // If selected path is a folder, create inside it; otherwise use root or parent
+    string new_path;
+    if (!base.empty() && base.back() != '/') {
+        // Treat base as folder if it exists as folder in tree
+        // Look up selected node flag
+        bool found_folder = false;
+        auto sel = file_list_view_.get_selection();
+        if (sel) {
+            auto it = sel->get_selected();
+            if (it && (*it)[columns_.is_folder]) {
+                found_folder = true;
+            }
+        }
+        if (found_folder) new_path = base + "/" + name;
+        else new_path = name;
+    } else {
+        new_path = base + name;
+    }
+
+    string err;
+    if (!client_.create_remote_folder(new_path, err)) {
+        lbl_status_.set_text("Create folder failed: " + err);
+        return;
+    }
+    lbl_status_.set_text("Folder created: " + new_path);
+    refresh_file_list();
+}
+
+void MainWindow::on_btn_rename_clicked() {
+    string src = entry_path_.get_text();
+    string dst = entry_target_.get_text();
+    if (src.empty()) { lbl_status_.set_text("Select source path"); return; }
+    if (dst.empty()) {
+        Gtk::Dialog dlg("New name", *this, true);
+        Gtk::Entry entry;
+        entry.set_text(src);
+        dlg.get_content_area()->pack_start(entry, Gtk::PACK_EXPAND_WIDGET);
+        dlg.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
+        dlg.add_button("_Rename", Gtk::RESPONSE_OK);
+        dlg.show_all_children();
+        if (dlg.run() != Gtk::RESPONSE_OK) { lbl_status_.set_text("Rename canceled"); return; }
+        dst = entry.get_text();
+    }
+    string err;
+    if (!client_.rename_remote(src, dst, err)) {
+        lbl_status_.set_text("Rename failed: " + err);
+        return;
+    }
+    lbl_status_.set_text("Renamed to " + dst);
+    refresh_file_list();
+}
+
+void MainWindow::on_btn_move_clicked() {
+    string src = entry_path_.get_text();
+    if (src.empty()) { lbl_status_.set_text("Select source path"); return; }
+    std::string dst_folder;
+    if (!choose_folder_dialog(dst_folder)) { lbl_status_.set_text("Move canceled"); return; }
+    // Place inside chosen folder (keep filename)
+    std::filesystem::path p(src);
+    std::string dst = dst_folder.empty() ? p.filename().string()
+                                         : (std::filesystem::path(dst_folder) / p.filename()).generic_string();
+    string err;
+    if (!client_.move_remote(src, dst, err)) {
+        lbl_status_.set_text("Move failed: " + err);
+        return;
+    }
+    lbl_status_.set_text("Moved to " + dst);
+    refresh_file_list();
+}
+
+void MainWindow::on_btn_copy_clicked() {
+    string src = entry_path_.get_text();
+    string dst = entry_target_.get_text();
+    if (src.empty() || dst.empty()) { lbl_status_.set_text("Fill source (main input) and target"); return; }
+    string err;
+    if (!client_.copy_remote(src, dst, err)) {
+        lbl_status_.set_text("Copy failed: " + err);
+        return;
+    }
+    lbl_status_.set_text("Copied to " + dst);
+    refresh_file_list();
+}
+
+void MainWindow::on_btn_delete_clicked() {
+    string path = entry_path_.get_text();
+    if (path.empty()) { lbl_status_.set_text("Enter path to delete"); return; }
+    string err;
+    if (!client_.delete_remote(path, err)) {
+        lbl_status_.set_text("Delete failed: " + err);
+        return;
+    }
+    lbl_status_.set_text("Deleted " + path);
+    refresh_file_list();
+}
+
+void MainWindow::on_btn_restore_clicked() {
+    string path = entry_path_.get_text();
+    if (path.empty()) { lbl_status_.set_text("Enter path to restore"); return; }
+    string err;
+    if (!client_.restore_remote(path, err)) {
+        lbl_status_.set_text("Restore failed: " + err);
+        return;
+    }
+    lbl_status_.set_text("Restored " + path);
+    refresh_file_list();
+}
+
+void MainWindow::on_btn_list_deleted_clicked() {
+    string rows, err;
+    if (!client_.list_deleted(rows, err)) {
+        lbl_status_.set_text("List deleted failed: " + err);
+        return;
+    }
+    Gtk::MessageDialog dlg(*this, "Deleted items", false, Gtk::MESSAGE_INFO, Gtk::BUTTONS_OK, true);
+    dlg.set_secondary_text(rows.empty() ? "No deleted items" : rows);
+    dlg.run();
 }
 
 void MainWindow::refresh_file_list() {
@@ -355,6 +531,8 @@ void MainWindow::on_file_selected() {
 
     entry_path_.set_text(path);
     lbl_status_.set_text("Selected: " + path);
+    // Prefill target with same path for convenience
+    entry_target_.set_text(path);
 }
 
 
@@ -472,4 +650,39 @@ void MainWindow::upload_folder_recursive(const std::string &local_root,
             }
         }
     }
+}
+
+std::vector<std::string> MainWindow::collect_folder_paths() {
+    std::vector<std::string> folders;
+    // Only collect top-level folders (depth 1) that are not hidden/system.
+    auto children = file_list_store_->children();
+    for (auto iter = children.begin(); iter != children.end(); ++iter) {
+        if (!(*iter)[columns_.is_folder]) continue;
+        Glib::ustring fp = (*iter)[columns_.full_path];
+        std::string path = fp.raw();
+        std::string name = path.substr(path.find_last_of('/') + 1);
+        if (name.rfind(".", 0) == 0 || name == "__MACOSX") continue;
+        folders.push_back(path);
+    }
+    return folders;
+}
+
+bool MainWindow::choose_folder_dialog(std::string &out_path) {
+    auto folders = collect_folder_paths();
+    Gtk::Dialog dlg("Choose target folder", *this, true);
+    dlg.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
+    dlg.add_button("_OK", Gtk::RESPONSE_OK);
+    Gtk::ComboBoxText combo;
+    combo.append(""); // root
+    for (auto &f : folders) combo.append(f);
+    combo.set_active(0);
+    dlg.get_content_area()->pack_start(combo, Gtk::PACK_EXPAND_WIDGET);
+    dlg.show_all_children();
+    if (dlg.run() != Gtk::RESPONSE_OK) return false;
+    out_path = combo.get_active_text();
+    // If user picked a file (shouldn't happen, but guard) or empty, keep root.
+    if (out_path != "" && out_path.back() == '/') {
+        while (!out_path.empty() && out_path.back() == '/') out_path.pop_back();
+    }
+    return true;
 }

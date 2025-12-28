@@ -21,6 +21,15 @@ protected:
     void on_btn_pause_download_clicked();
     void on_btn_resume_download_clicked();
     void on_btn_unzip_clicked();
+    void on_btn_create_folder_clicked();
+    void on_btn_rename_clicked();
+    void on_btn_move_clicked();
+    void on_btn_copy_clicked();
+    void on_btn_delete_clicked();
+    void on_btn_restore_clicked();
+    void on_btn_list_deleted_clicked();
+    std::vector<std::string> collect_folder_paths();
+    bool choose_folder_dialog(std::string &out_path);
     void refresh_file_list();
     void on_file_selected();
     bool update_online_count();
@@ -45,6 +54,7 @@ protected:
     Gtk::TextView text_view_;
     Gtk::Label lbl_status_;
     Gtk::Label lbl_online_;
+    Gtk::Entry entry_target_;
 
     sigc::connection online_timer_;
     // ===== FILE LIST MODEL =====

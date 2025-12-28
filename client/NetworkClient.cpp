@@ -380,6 +380,72 @@ bool NetworkClient::create_remote_folder(const string &remote_path, string &err)
     return false;
 }
 
+bool NetworkClient::rename_remote(const string &old_path, const string &new_path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "RENAME " + old_path + " " + new_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::move_remote(const string &old_path, const string &new_path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "MOVE " + old_path + " " + new_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::copy_remote(const string &src_path, const string &dst_path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "COPY " + src_path + " " + dst_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::delete_remote(const string &path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "DELETE " + path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::restore_remote(const string &path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "RESTORE " + path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::list_deleted(string &rows, string &err) {
+    rows.clear();
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    if (!send_line(sockfd_, "LIST_DELETED")) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    auto tok = split_tokens(line);
+    if (tok.size() < 3 || tok[0] != "OK" || tok[1] != "200") { err = line; return false; }
+    int count = stoi(tok[2]);
+    for (int i = 0; i < count; ++i) {
+        if (!recv_line(sockfd_, line)) { err = "Receive error"; return false; }
+        rows += line + "\n";
+    }
+    return true;
+}
+
 bool NetworkClient::list_files_db(string &paths, string &err) {
     paths.clear();
 

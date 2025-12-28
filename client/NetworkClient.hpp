@@ -30,6 +30,12 @@ public:
     bool continue_download(const string &remote_path, const string &local_path, string &err);
     bool unzip_remote(const string &zip_path, const string &target_dir, string &err);
     bool create_remote_folder(const string &remote_path, string &err);
+    bool rename_remote(const string &old_path, const string &new_path, string &err);
+    bool move_remote(const string &old_path, const string &new_path, string &err);
+    bool copy_remote(const string &src_path, const string &dst_path, string &err);
+    bool delete_remote(const string &path, string &err);
+    bool restore_remote(const string &path, string &err);
+    bool list_deleted(string &rows, string &err);
     bool list_files_db(string &paths, string &err);
     bool send_raw_command(const string& cmd, string& out, string& err);
              
