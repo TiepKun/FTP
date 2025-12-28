@@ -1,0 +1,1477 @@
+Last login: Sun Nov 30 23:10:28 on console
+(base) tiepnguyen@Tiep-Nguyen ~ % cd Downloads
+(base) tiepnguyen@Tiep-Nguyen Downloads % cd AWS
+(base) tiepnguyen@Tiep-Nguyen AWS % chmod 400 deepsomaticwes.pem
+(base) tiepnguyen@Tiep-Nguyen AWS % ssh -i deepsomaticwes.pem ubuntu@15.134.138.93
+The authenticity of host '15.134.138.93 (15.134.138.93)' can't be established.
+ED25519 key fingerprint is SHA256:oiJhd0rIipY1YCaFMwVBnclFvmlAC9ptd3EPSpZ2QME.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '15.134.138.93' (ED25519) to the list of known hosts.
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.14.0-1015-aws x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Sun Nov 30 19:01:05 UTC 2025
+
+  System load:  0.09              Temperature:           -273.1 C
+  Usage of /:   1.8% of 95.82GB   Processes:             175
+  Memory usage: 1%                Users logged in:       1
+  Swap usage:   0%                IPv4 address for ens5: 172.31.0.10
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+The list of available updates is more than a week old.
+To check for new updates run: sudo apt update
+
+Last login: Sun Nov 30 18:59:15 2025 from 13.239.158.5
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+ubuntu@ip-172-31-0-10:~$ BASE="${HOME}/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+OUTPUT_DIR="${BASE}/output"
+
+mkdir -p "${INPUT_DIR}" "${OUTPUT_DIR}" "${OUTPUT_DIR}/sompy_output"
+
+BIN_VERSION="1.9.0"
+sudo docker pull google/deepsomatic:"${BIN_VERSION}"
+sudo: docker: command not found
+ubuntu@ip-172-31-0-10:~$ sudo apt-get install
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+ubuntu@ip-172-31-0-10:~$ sudo apt update
+Hit:1 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble InRelease
+Get:2 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Get:3 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+Get:4 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 Packages [15.0 MB]
+Get:5 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe Translation-en [5982 kB]
+Get:6 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 Components [3871 kB]
+Get:7 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 c-n-f Metadata [301 kB]
+Get:8 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [269 kB]
+Get:9 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/multiverse Translation-en [118 kB]
+Get:10 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/multiverse amd64 Components [35.0 kB]
+Get:11 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/multiverse amd64 c-n-f Metadata [8328 B]
+Get:12 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1620 kB]
+Get:13 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [303 kB]
+Get:14 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [175 kB]
+Get:15 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 c-n-f Metadata [15.7 kB]
+Get:16 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1500 kB]
+Get:17 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]    
+Get:18 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [304 kB]
+Get:19 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [378 kB]
+Get:20 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [31.4 kB]
+Get:21 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [2307 kB]
+Get:22 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [526 kB]
+Get:23 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Components [212 B]
+Get:24 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [30.3 kB]
+Get:25 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [5808 B]
+Get:26 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+Get:27 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 c-n-f Metadata [484 B]
+Get:28 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [40.4 kB]
+Get:29 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/main Translation-en [9208 B]
+Get:30 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [7140 B]
+Get:31 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/main amd64 c-n-f Metadata [368 B]
+Get:32 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [29.2 kB]
+Get:33 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/universe Translation-en [17.6 kB]
+Get:34 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [11.0 kB]
+Get:35 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/universe amd64 c-n-f Metadata [1444 B]
+Get:36 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/restricted amd64 Components [212 B]
+Get:37 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/restricted amd64 c-n-f Metadata [116 B]
+Get:38 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Components [212 B]
+Get:39 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 c-n-f Metadata [116 B]
+Get:40 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1340 kB]
+Get:41 http://security.ubuntu.com/ubuntu noble-security/main Translation-en [219 kB]
+Get:42 http://security.ubuntu.com/ubuntu noble-security/main amd64 Components [21.6 kB]
+Get:43 http://security.ubuntu.com/ubuntu noble-security/main amd64 c-n-f Metadata [9452 B]
+Get:44 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [915 kB]
+Get:45 http://security.ubuntu.com/ubuntu noble-security/universe Translation-en [206 kB]
+Get:46 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Components [71.4 kB]
+Get:47 http://security.ubuntu.com/ubuntu noble-security/universe amd64 c-n-f Metadata [19.5 kB]
+Get:48 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [2194 kB]
+Get:49 http://security.ubuntu.com/ubuntu noble-security/restricted Translation-en [501 kB]
+Get:50 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Components [212 B]
+Get:51 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [27.4 kB]
+Get:52 http://security.ubuntu.com/ubuntu noble-security/multiverse Translation-en [5956 B]
+Get:53 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Components [208 B]
+Get:54 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 c-n-f Metadata [384 B]
+Fetched 38.8 MB in 6s (6748 kB/s)                                      
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+27 packages can be upgraded. Run 'apt list --upgradable' to see them.
+ubuntu@ip-172-31-0-10:~$ BASE="${HOME}/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+OUTPUT_DIR="${BASE}/output"
+
+mkdir -p "${INPUT_DIR}" "${OUTPUT_DIR}" "${OUTPUT_DIR}/sompy_output"
+ubuntu@ip-172-31-0-10:~$ BIN_VERSION="1.9.0"
+sudo docker pull google/deepsomatic:"${BIN_VERSION}"
+sudo: docker: command not found
+ubuntu@ip-172-31-0-10:~$ sudo apt-get update
+Hit:1 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble InRelease
+Hit:2 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:3 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports InRelease
+Hit:4 http://security.ubuntu.com/ubuntu noble-security InRelease
+Reading package lists... Done
+ubuntu@ip-172-31-0-10:~$ sudo apt-get install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+ca-certificates is already the newest version (20240203).
+ca-certificates set to manually installed.
+curl is already the newest version (8.5.0-2ubuntu10.6).
+curl set to manually installed.
+gnupg is already the newest version (2.4.4-2ubuntu17.3).
+gnupg set to manually installed.
+lsb-release is already the newest version (12.0-2).
+lsb-release set to manually installed.
+0 upgraded, 0 newly installed, 0 to remove and 27 not upgraded.
+ubuntu@ip-172-31-0-10:~$ sudo mkdir -p /etc/apt/keyrings
+ubuntu@ip-172-31-0-10:~$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+ubuntu@ip-172-31-0-10:~$ echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+ubuntu@ip-172-31-0-10:~$ sudo apt-get update
+
+sudo apt-get install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io
+Hit:1 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble InRelease
+Hit:2 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:3 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports InRelease
+Get:4 https://download.docker.com/linux/ubuntu noble InRelease [48.5 kB]      
+Get:5 https://download.docker.com/linux/ubuntu noble/stable amd64 Packages [39.3 kB]
+Hit:6 http://security.ubuntu.com/ubuntu noble-security InRelease
+Fetched 87.8 kB in 1s (143 kB/s)
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following additional packages will be installed:
+  docker-buildx-plugin docker-ce-rootless-extras docker-compose-plugin
+  libslirp0 pigz slirp4netns
+Suggested packages:
+  cgroupfs-mount | cgroup-lite docker-model-plugin
+The following NEW packages will be installed:
+  containerd.io docker-buildx-plugin docker-ce docker-ce-cli
+  docker-ce-rootless-extras docker-compose-plugin libslirp0 pigz slirp4netns
+0 upgraded, 9 newly installed, 0 to remove and 27 not upgraded.
+Need to get 97.8 MB of archives.
+After this operation, 409 MB of additional disk space will be used.
+Get:1 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 pigz amd64 2.8-1 [65.6 kB]
+Get:2 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/main amd64 libslirp0 amd64 4.7.0-1ubuntu3 [63.8 kB]
+Get:3 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 slirp4netns amd64 1.2.1-1build2 [34.9 kB]
+Get:4 https://download.docker.com/linux/ubuntu noble/stable amd64 containerd.io amd64 2.2.0-2~ubuntu.24.04~noble [23.3 MB]
+Get:5 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-ce-cli amd64 5:29.1.1-1~ubuntu.24.04~noble [16.3 MB]
+Get:6 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-ce amd64 5:29.1.1-1~ubuntu.24.04~noble [21.0 MB]
+Get:7 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-buildx-plugin amd64 0.30.1-1~ubuntu.24.04~noble [16.4 MB]
+Get:8 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-ce-rootless-extras amd64 5:29.1.1-1~ubuntu.24.04~noble [6381 kB]
+Get:9 https://download.docker.com/linux/ubuntu noble/stable amd64 docker-compose-plugin amd64 2.40.3-1~ubuntu.24.04~noble [14.3 MB]
+Fetched 97.8 MB in 1s (93.2 MB/s)               
+Selecting previously unselected package containerd.io.
+(Reading database ... 71735 files and directories currently installed.)
+Preparing to unpack .../0-containerd.io_2.2.0-2~ubuntu.24.04~noble_amd64.deb ...
+Unpacking containerd.io (2.2.0-2~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-ce-cli.
+Preparing to unpack .../1-docker-ce-cli_5%3a29.1.1-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-ce-cli (5:29.1.1-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-ce.
+Preparing to unpack .../2-docker-ce_5%3a29.1.1-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-ce (5:29.1.1-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package pigz.
+Preparing to unpack .../3-pigz_2.8-1_amd64.deb ...
+Unpacking pigz (2.8-1) ...
+Selecting previously unselected package docker-buildx-plugin.
+Preparing to unpack .../4-docker-buildx-plugin_0.30.1-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-buildx-plugin (0.30.1-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-ce-rootless-extras.
+Preparing to unpack .../5-docker-ce-rootless-extras_5%3a29.1.1-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-ce-rootless-extras (5:29.1.1-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package docker-compose-plugin.
+Preparing to unpack .../6-docker-compose-plugin_2.40.3-1~ubuntu.24.04~noble_amd64.deb ...
+Unpacking docker-compose-plugin (2.40.3-1~ubuntu.24.04~noble) ...
+Selecting previously unselected package libslirp0:amd64.
+Preparing to unpack .../7-libslirp0_4.7.0-1ubuntu3_amd64.deb ...
+Unpacking libslirp0:amd64 (4.7.0-1ubuntu3) ...
+Selecting previously unselected package slirp4netns.
+Preparing to unpack .../8-slirp4netns_1.2.1-1build2_amd64.deb ...
+Unpacking slirp4netns (1.2.1-1build2) ...
+Setting up docker-buildx-plugin (0.30.1-1~ubuntu.24.04~noble) ...
+Setting up containerd.io (2.2.0-2~ubuntu.24.04~noble) ...
+Created symlink /etc/systemd/system/multi-user.target.wants/containerd.service → /usr/lib/systemd/system/containerd.service.
+Setting up docker-compose-plugin (2.40.3-1~ubuntu.24.04~noble) ...
+Setting up docker-ce-cli (5:29.1.1-1~ubuntu.24.04~noble) ...
+Setting up libslirp0:amd64 (4.7.0-1ubuntu3) ...
+Setting up pigz (2.8-1) ...
+Setting up docker-ce-rootless-extras (5:29.1.1-1~ubuntu.24.04~noble) ...
+Setting up slirp4netns (1.2.1-1build2) ...
+Setting up docker-ce (5:29.1.1-1~ubuntu.24.04~noble) ...
+Created symlink /etc/systemd/system/multi-user.target.wants/docker.service → /usr/lib/systemd/system/docker.service.
+Created symlink /etc/systemd/system/sockets.target.wants/docker.socket → /usr/lib/systemd/system/docker.socket.
+Processing triggers for man-db (2.12.0-4build2) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.6) ...
+Scanning processes...                                                          
+Scanning linux images...                                                       
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+ubuntu@ip-172-31-0-10:~$ docker --version
+sudo docker run hello-world
+Docker version 29.1.1, build 0aedba5
+Unable to find image 'hello-world:latest' locally
+latest: Pulling from library/hello-world
+17eec7bbc9d7: Pull complete 
+ea52d2000f90: Download complete 
+Digest: sha256:f7931603f70e13dbd844253370742c4fc4202d290c80442b2e68706d8f33ce26
+Status: Downloaded newer image for hello-world:latest
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
+
+ubuntu@ip-172-31-0-10:~$ BASE="${HOME}/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+OUTPUT_DIR="${BASE}/output"
+
+mkdir -p "${INPUT_DIR}" "${OUTPUT_DIR}" "${OUTPUT_DIR}/sompy_output"
+
+BIN_VERSION="1.9.0"
+sudo docker pull google/deepsomatic:"${BIN_VERSION}"
+1.9.0: Pulling from google/deepsomatic
+b1f9a1220d62: Pulling fs layer 
+2cb7f077626d: Pulling fs layer 
+8d01697c1c7f: Pulling fs layer 
+01e5f7446206: Pulling fs layer 
+0cf5538b3ff3: Pulling fs layer 
+d02543433f71: Pulling fs layer 
+2b2917a187cc: Pulling fs layer 
+315484830bf3: Pulling fs layer 
+402edd2e1ce8: Pulling fs layer 
+ddce88848d4c: Pulling fs layer 
+c4b661f5667d: Pulling fs layer 
+13c974234bc6: Pulling fs layer 
+7ef912bd29c4: Pulling fs layer 
+01c47ffbf481: Pulling fs layer 
+cda40bbbe281: Pulling fs layer 
+1e95a260451e: Pulling fs layer 
+c3ab68451441: Pulling fs layer 
+d0c069385cf5: Pulling fs layer 
+574e42b5dd4a: Pulling fs layer 
+47fc3764ba1a: Pulling fs layer 
+37ca321cfcda: Pulling fs layer 
+77cc5153a06f: Pulling fs layer 
+e9dac5b12905: Pulling fs layer 
+860f12be9ce4: Pulling fs layer 
+b2c03f43632c: Pulling fs layer 
+37cea0801630: Pulling fs layer 
+c53b055fcbc6: Pulling fs layer 
+32f87cc8aee0: Pulling fs layer 
+443a80ec1f96: Pulling fs layer 
+ff6a7064b9e7: Pulling fs layer 
+829b6e6a7d3b: Pulling fs layer 
+58e24f9e99e2: Pulling fs layer 
+a11d1db66101: Pulling fs layer 
+32b1ad5d7955: Pulling fs layer 
+e2190ed8af97: Pulling fs layer 
+17138f168759: Pulling fs layer 
+56567e15737a: Pulling fs layer 
+11b3fb0150a3: Pulling fs layer 
+346e33698bc7: Pulling fs layer 
+313ecef95389: Pulling fs layer 
+8e2e8b99881b: Pulling fs layer 
+8fa4c6ac8e3d: Pulling fs layer 
+d947bbb6f874: Pulling fs layer 
+84a9b6fbcbb2: Pulling fs layer 
+44e977d6270a: Pulling fs layer 
+38b89ca629c1: Pulling fs layer 
+8247aac7df0a: Pulling fs layer 
+e1a89dea01a6: Pulling fs layer 
+62ba26e75791: Pulling fs layer 
+74bcc7162933: Pulling fs layer 
+bf6db9fe4500: Pulling fs layer 
+f552bb67fb9c: Pulling fs layer 
+6d12e04033ff: Pulling fs layer 
+0000d5a1840b: Pulling fs layer 
+144f89d2a2ae: Pulling fs layer 
+73691fd442f7: Pulling fs layer 
+1c7ba2ba8d92: Pulling fs layer 
+ba3c8b385f5e: Pulling fs layer 
+8d01697c1c7f: Pull complete 
+08c4ba3813ff: Pull complete 
+9e97bc20e36a: Pull complete 
+ad825ecc3448: Pull complete 
+bd376a5cc16f: Pull complete 
+cec69bd43f2c: Pull complete 
+8e123135ac24: Pull complete 
+2e5fe7c37fdc: Pull complete 
+69ea34f8e0e5: Pull complete 
+44fbc206e36d: Pull complete 
+c84dfdaf9b60: Pull complete 
+c57619f718bd: Pull complete 
+6bb441273de1: Pull complete 
+be79f8477692: Pull complete 
+324de3d57a93: Pull complete 
+4413d1e73fae: Pull complete 
+1e235bfd3af2: Pull complete 
+a1d23d0353cf: Pull complete 
+7331f010922d: Pull complete 
+c754843b7696: Pull complete 
+e24bcf488b84: Pull complete 
+2d089214cbf7: Pull complete 
+Digest: sha256:d9797b8950bf615ec7010d1336b7ee0a2f12ea09323dc3585f7e9fe39b082bde
+Status: Downloaded newer image for google/deepsomatic:1.9.0
+docker.io/google/deepsomatic:1.9.0
+ubuntu@ip-172-31-0-10:~$ sudo docker run \
+  -v ${INPUT_DIR}:${INPUT_DIR} \
+  -v ${OUTPUT_DIR}:${OUTPUT_DIR} \
+  google/deepsomatic:"${BIN_VERSION}" \
+  run_deepsomatic \
+    --model_type=WES \
+    --ref=${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna \
+    --reads_normal=${INPUT_DIR}/HCC1395_wes.normal.chr1.bam \
+    --reads_tumor=${INPUT_DIR}/HCC1395_wes.tumor.chr1.bam \
+    --output_vcf=${OUTPUT_DIR}/HCC1395_deepsomatic_output.vcf.gz \
+    --sample_name_tumor="HCC1395Tumor" \
+    --sample_name_normal="HCC1395Normal" \
+    --num_shards=$(nproc) \
+    --logging_dir=${OUTPUT_DIR}/logs \
+    --intermediate_results_dir=${OUTPUT_DIR}/intermediate_results_dir \
+    --regions=chr1
+2025-11-30 19:09:22.803308: I tensorflow/core/util/port.cc:110] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-11-30 19:09:22.806236: I tensorflow/tsl/cuda/cudart_stub.cc:28] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-30 19:09:22.855924: I tensorflow/tsl/cuda/cudart_stub.cc:28] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-30 19:09:22.856709: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-30 19:09:23.967520: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+I1130 19:09:25.751293 135814529372608 run_deepsomatic.py:756] Creating a directory for intermediate results in /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir
+I1130 19:09:25.751837 135814529372608 run_deepsomatic.py:972] Creating a directory for logs in /home/ubuntu/deepsomatic-wes-case-study/output/logs
+
+***** Intermediate results will be written to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir in docker. ****
+
+I1130 19:09:25.752171 135814529372608 run_deepsomatic.py:981] env = {'HOSTNAME': 'fe82274c80b2', 'PYTHON_VERSION': '3.10', 'DV_GPU_BUILD': '0', 'PWD': '/opt/deepvariant', 'VERSION_DEEPSOMATIC': '1.9.0', 'TF_ENABLE_ONEDNN_OPTS': '1', 'HOME': '/root', 'SHLVL': '1', 'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/conda/bin:/opt/conda/envs/bio/bin:/opt/deepvariant/bin/deepsomatic:/opt/deepvariant/bin', '_': '/usr/bin/python3', 'LC_CTYPE': 'C.UTF-8', 'TPU_ML_PLATFORM': 'Tensorflow', 'TF2_BEHAVIOR': '1', 'TF_CPP_MIN_LOG_LEVEL': '1'}
+
+***** Running the command:*****
+time seq 0 7 | parallel -q --halt 2 --line-buffer /opt/deepvariant/bin/make_examples_somatic --mode calling --ref "/home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna" --reads_tumor "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" --reads_normal "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam" --examples "/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord@8.gz" --checkpoint "/opt/models/deepsomatic/wes" --regions "chr1" --sample_name_normal "HCC1395Normal" --sample_name_tumor "HCC1395Tumor" --vsc_max_fraction_indels_for_non_target_sample "0.5" --vsc_max_fraction_snps_for_non_target_sample "0.5" --vsc_min_fraction_indels "0.05" --vsc_min_fraction_snps "0.029" --task {}
+
+2025-11-30 19:09:29.200438: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:09:29.218390: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:09:29.251816: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:09:29.251816: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:09:29.225953: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:09:29.277649: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:09:29.323045: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:09:29.278478: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+/tmp/Bazel.runfiles_vodjmo5i/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.433313 130062275948992 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.433889 130062275948992 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.434365 130062275948992 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.436470 130062275948992 make_examples_core.py:348] Task 2/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_vodjmo5i/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_vodjmo5i/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_vodjmo5i/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_vodjmo5i/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_vodjmo5i/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_vodjmo5i/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_vodjmo5i/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+/tmp/Bazel.runfiles_zwn5uxw7/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.323574 129482180153792 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.324152 129482180153792 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.324630 129482180153792 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.326798 129482180153792 make_examples_core.py:348] Task 4/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_zwn5uxw7/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_zwn5uxw7/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_zwn5uxw7/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_zwn5uxw7/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_zwn5uxw7/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_zwn5uxw7/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_zwn5uxw7/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+/tmp/Bazel.runfiles_sny6qhws/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.369611 134773224808896 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.370285 134773224808896 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.370858 134773224808896 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.373347 134773224808896 make_examples_core.py:348] Task 0/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_sny6qhws/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_sny6qhws/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_sny6qhws/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_sny6qhws/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_sny6qhws/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_sny6qhws/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_sny6qhws/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+/tmp/Bazel.runfiles_yz9_orfp/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.457658 137472161702336 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.458253 137472161702336 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.458765 137472161702336 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.460912 137472161702336 make_examples_core.py:348] Task 5/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_yz9_orfp/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_yz9_orfp/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_yz9_orfp/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_yz9_orfp/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_yz9_orfp/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_yz9_orfp/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_yz9_orfp/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+/tmp/Bazel.runfiles_impl_cby/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.350378 130221900169664 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.350956 130221900169664 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.351430 130221900169664 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.353625 130221900169664 make_examples_core.py:348] Task 3/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_impl_cby/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_impl_cby/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_impl_cby/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_impl_cby/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_impl_cby/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_impl_cby/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_impl_cby/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+/tmp/Bazel.runfiles_yl6o4avl/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.411859 140709310583232 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.412528 140709310583232 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.413051 140709310583232 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.415411 140709310583232 make_examples_core.py:348] Task 6/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_yl6o4avl/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_yl6o4avl/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_yl6o4avl/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_yl6o4avl/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_yl6o4avl/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_yl6o4avl/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_yl6o4avl/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+/tmp/Bazel.runfiles_qs3mdpp9/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.355183 132233098117568 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.355824 132233098117568 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.356298 132233098117568 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.358460 132233098117568 make_examples_core.py:348] Task 1/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_qs3mdpp9/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_qs3mdpp9/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_qs3mdpp9/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_qs3mdpp9/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_qs3mdpp9/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_qs3mdpp9/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_qs3mdpp9/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+/tmp/Bazel.runfiles_2poqe_0r/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:09:32.525144 136676078309824 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:09:32.525828 136676078309824 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:09:32.526363 136676078309824 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:09:32.528665 136676078309824 make_examples_core.py:348] Task 7/8: Preparing inputs
+[E::fai_load3_core] Failed to open FASTA index /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai: No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_2poqe_0r/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_2poqe_0r/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_2poqe_0r/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_2poqe_0r/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_2poqe_0r/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_2poqe_0r/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3088, in processing_regions_from_options
+    ref_contigs = fasta.IndexedFastaReader(
+  File "/tmp/Bazel.runfiles_2poqe_0r/runfiles/com_google_deepvariant/third_party/nucleus/io/fasta.py", line 106, in __init__
+    self._reader = reference.IndexedFastaReader.from_file(
+ValueError: NOT_FOUND: could not load fasta and/or fai for fasta /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+parallel: This job failed:
+/opt/deepvariant/bin/make_examples_somatic --mode calling --ref /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna --reads_tumor /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam --reads_normal /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam --examples '/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord@8.gz' --checkpoint /opt/models/deepsomatic/wes --regions chr1 --sample_name_normal HCC1395Normal --sample_name_tumor HCC1395Tumor --vsc_max_fraction_indels_for_non_target_sample 0.5 --vsc_max_fraction_snps_for_non_target_sample 0.5 --vsc_min_fraction_indels 0.05 --vsc_min_fraction_snps 0.029 --task 4
+
+real	0m7.693s
+user	0m6.814s
+sys	0m1.044s
+ubuntu@ip-172-31-0-10:~$ BASE="/home/ubuntu/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+
+ls -l ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna*
+ls: cannot access '/home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna*': No such file or directory
+ubuntu@ip-172-31-0-10:~$ HTTPDIR=https://storage.googleapis.com/deepvariant/deepsomatic-case-studies/deepsomatic-chr1-case-studies
+
+curl ${HTTPDIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai \
+  > ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    23  100    23    0     0     48      0 --:--:-- --:--:-- --:--:--    49
+ubuntu@ip-172-31-0-10:~$ ls -l ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna*
+# phải thấy cả .fna và .fna.fai
+-rw-rw-r-- 1 ubuntu ubuntu 23 Nov 30 19:11 /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+ubuntu@ip-172-31-0-10:~$ ls -lh /home/ubuntu/deepsomatic-wes-case-study/input/data
+total 4.0K
+-rw-rw-r-- 1 ubuntu ubuntu 23 Nov 30 19:11 GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+ubuntu@ip-172-31-0-10:~$ BASE="/home/ubuntu/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+mkdir -p "${INPUT_DIR}"
+
+HTTPDIR=https://storage.googleapis.com/deepvariant/deepsomatic-case-studies/deepsomatic-chr1-case-studies
+
+# 1) Tải lại FASTA
+curl -o ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna \
+  ${HTTPDIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+
+# 2) Tải lại FAI
+curl -o ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai \ 
+  ${HTTPDIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  241M  100  241M    0     0  17.6M      0  0:00:13  0:00:13 --:--:-- 21.0M
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    23  100    23    0     0     40      0 --:--:-- --:--:-- --:--:--    40
+ubuntu@ip-172-31-0-10:~$ ls -lh ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna*
+-rw-rw-r-- 1 ubuntu ubuntu 242M Nov 30 19:14 /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+-rw-rw-r-- 1 ubuntu ubuntu   23 Nov 30 19:14 /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+ubuntu@ip-172-31-0-10:~$ BASE="/home/ubuntu/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+
+rm -f ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+ubuntu@ip-172-31-0-10:~$ sudo apt-get update
+sudo apt-get install -y samtools
+
+samtools faidx ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+Hit:1 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble InRelease
+Hit:2 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:3 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-backports InRelease
+Hit:4 https://download.docker.com/linux/ubuntu noble InRelease                
+Hit:5 http://security.ubuntu.com/ubuntu noble-security InRelease              
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following additional packages will be installed:
+  libdeflate0 libhts3t64 libhtscodecs2
+Suggested packages:
+  cwltool
+The following NEW packages will be installed:
+  libdeflate0 libhts3t64 libhtscodecs2 samtools
+0 upgraded, 4 newly installed, 0 to remove and 27 not upgraded.
+Need to get 1172 kB of archives.
+After this operation, 2747 kB of additional disk space will be used.
+Get:1 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble-updates/main amd64 libdeflate0 amd64 1.19-1build1.1 [43.9 kB]
+Get:2 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 libhtscodecs2 amd64 1.6.0-1build1 [98.8 kB]
+Get:3 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 libhts3t64 amd64 1.19+ds-1.1build3 [437 kB]
+Get:4 http://ap-southeast-2.ec2.archive.ubuntu.com/ubuntu noble/universe amd64 samtools amd64 1.19.2-1build2 [593 kB]
+Fetched 1172 kB in 1s (1819 kB/s) 
+Selecting previously unselected package libdeflate0:amd64.
+(Reading database ... 71984 files and directories currently installed.)
+Preparing to unpack .../libdeflate0_1.19-1build1.1_amd64.deb ...
+Unpacking libdeflate0:amd64 (1.19-1build1.1) ...
+Selecting previously unselected package libhtscodecs2:amd64.
+Preparing to unpack .../libhtscodecs2_1.6.0-1build1_amd64.deb ...
+Unpacking libhtscodecs2:amd64 (1.6.0-1build1) ...
+Selecting previously unselected package libhts3t64:amd64.
+Preparing to unpack .../libhts3t64_1.19+ds-1.1build3_amd64.deb ...
+Unpacking libhts3t64:amd64 (1.19+ds-1.1build3) ...
+Selecting previously unselected package samtools.
+Preparing to unpack .../samtools_1.19.2-1build2_amd64.deb ...
+Unpacking samtools (1.19.2-1build2) ...
+Setting up libhtscodecs2:amd64 (1.6.0-1build1) ...
+Setting up libdeflate0:amd64 (1.19-1build1.1) ...
+Setting up libhts3t64:amd64 (1.19+ds-1.1build3) ...
+Setting up samtools (1.19.2-1build2) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.6) ...
+Scanning processes...                                                          
+Scanning linux images...                                                       
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+ubuntu@ip-172-31-0-10:~$ ls -lh ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna*
+-rw-rw-r-- 1 ubuntu ubuntu 242M Nov 30 19:14 /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+-rw-rw-r-- 1 ubuntu ubuntu   23 Nov 30 19:15 /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+ubuntu@ip-172-31-0-10:~$ head ${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+chr1	248956422	6	60	61
+ubuntu@ip-172-31-0-10:~$ BASE="/home/ubuntu/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+OUTPUT_DIR="${BASE}/output"
+
+rm -rf ${OUTPUT_DIR}/intermediate_results_dir
+mkdir -p ${OUTPUT_DIR}/intermediate_results_dir
+mkdir -p ${OUTPUT_DIR}/logs
+ubuntu@ip-172-31-0-10:~$ BIN_VERSION="1.9.0"
+
+sudo docker run \
+  -v ${INPUT_DIR}:${INPUT_DIR} \
+  -v ${OUTPUT_DIR}:${OUTPUT_DIR} \
+  google/deepsomatic:"${BIN_VERSION}" \
+  run_deepsomatic \
+    --model_type=WES \
+    --ref=${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna \
+    --reads_normal=${INPUT_DIR}/HCC1395_wes.normal.chr1.bam \
+    --reads_tumor=${INPUT_DIR}/HCC1395_wes.tumor.chr1.bam \
+    --output_vcf=${OUTPUT_DIR}/HCC1395_deepsomatic_output.vcf.gz \
+    --sample_name_tumor="HCC1395Tumor" \
+    --sample_name_normal="HCC1395Normal" \
+    --num_shards=$(nproc) \
+    --logging_dir=${OUTPUT_DIR}/logs \
+    --intermediate_results_dir=${OUTPUT_DIR}/intermediate_results_dir \
+    --regions=chr1
+2025-11-30 19:16:46.782888: I tensorflow/core/util/port.cc:110] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-11-30 19:16:46.785666: I tensorflow/tsl/cuda/cudart_stub.cc:28] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-30 19:16:46.835996: I tensorflow/tsl/cuda/cudart_stub.cc:28] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-30 19:16:46.836711: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-30 19:16:47.951561: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+I1130 19:16:49.734924 128134257836480 run_deepsomatic.py:762] Re-using the directory for intermediate results in /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir
+
+***** Intermediate results will be written to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir in docker. ****
+
+
+***** Running the command:*****
+time seq 0 7 | parallel -q --halt 2 --line-buffer /opt/deepvariant/bin/make_examples_somatic --mode calling --ref "/home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna" --reads_tumor "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" --reads_normal "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam" --examples "/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord@8.gz" --checkpoint "/opt/models/deepsomatic/wes" --regions "chr1" --sample_name_normal "HCC1395Normal" --sample_name_tumor "HCC1395Tumor" --vsc_max_fraction_indels_for_non_target_sample "0.5" --vsc_max_fraction_snps_for_non_target_sample "0.5" --vsc_min_fraction_indels "0.05" --vsc_min_fraction_snps "0.029" --task {}
+
+I1130 19:16:49.735727 128134257836480 run_deepsomatic.py:981] env = {'HOSTNAME': 'b0c1125eb119', 'PYTHON_VERSION': '3.10', 'DV_GPU_BUILD': '0', 'PWD': '/opt/deepvariant', 'VERSION_DEEPSOMATIC': '1.9.0', 'TF_ENABLE_ONEDNN_OPTS': '1', 'HOME': '/root', 'SHLVL': '1', 'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/conda/bin:/opt/conda/envs/bio/bin:/opt/deepvariant/bin/deepsomatic:/opt/deepvariant/bin', '_': '/usr/bin/python3', 'LC_CTYPE': 'C.UTF-8', 'TPU_ML_PLATFORM': 'Tensorflow', 'TF2_BEHAVIOR': '1', 'TF_CPP_MIN_LOG_LEVEL': '1'}
+2025-11-30 19:16:53.240473: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:16:53.210756: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:16:53.267229: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:16:53.298794: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:16:53.405482: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:16:53.307293: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:16:53.388163: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:16:53.320061: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+/tmp/Bazel.runfiles_virclkw1/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.469341 125370660995520 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.470013 125370660995520 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.470556 125370660995520 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.473049 125370660995520 make_examples_core.py:348] Task 6/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_virclkw1/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+/tmp/Bazel.runfiles_phexuj0z/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.485306 139599042757056 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.485910 139599042757056 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.486391 139599042757056 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.488573 139599042757056 make_examples_core.py:348] Task 3/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_phexuj0z/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+/tmp/Bazel.runfiles_4d_xhd6m/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.395107 125091395588544 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.395726 125091395588544 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.396224 125091395588544 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.398399 125091395588544 make_examples_core.py:348] Task 1/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_4d_xhd6m/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+/tmp/Bazel.runfiles_mcc3pqlv/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.374433 136086582792640 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.375152 136086582792640 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.375699 136086582792640 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.378235 136086582792640 make_examples_core.py:348] Task 5/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_mcc3pqlv/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+/tmp/Bazel.runfiles_vmdv96d2/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.674707 126031979213248 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.675311 126031979213248 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.675884 126031979213248 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.678223 126031979213248 make_examples_core.py:348] Task 2/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_vmdv96d2/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+/tmp/Bazel.runfiles_2jps4tio/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.671751 137179096244672 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.672343 137179096244672 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.672859 137179096244672 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.675047 137179096244672 make_examples_core.py:348] Task 4/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_2jps4tio/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+/tmp/Bazel.runfiles_eo9cpxyc/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.503598 138773297877440 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.504174 138773297877440 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.504701 138773297877440 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.506769 138773297877440 make_examples_core.py:348] Task 0/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_eo9cpxyc/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+/tmp/Bazel.runfiles_9xvx8z4q/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:16:56.537681 139733874844096 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:16:56.538267 139733874844096 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:16:56.538788 139733874844096 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:16:56.540862 139733874844096 make_examples_core.py:348] Task 7/8: Preparing inputs
+[E::hts_open_format] Failed to open file "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" : No such file or directory
+Traceback (most recent call last):
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 331, in <module>
+    app.run(main)
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/absl_py/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/absl_py/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/deepvariant/make_examples_somatic.py", line 321, in main
+    make_examples_core.make_examples_runner(options)
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3201, in make_examples_runner
+    ) = processing_regions_from_options(options)
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3113, in processing_regions_from_options
+    all_sam_contigs = [
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/deepvariant/make_examples_core.py", line 3114, in <listcomp>
+    sam.SamReader(reads_file).header.contigs
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/third_party/nucleus/io/genomics_reader.py", line 221, in __init__
+    self._reader = self._native_reader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 297, in _native_reader
+    return NativeSamReader(input_path, **kwargs)
+  File "/tmp/Bazel.runfiles_9xvx8z4q/runfiles/com_google_deepvariant/third_party/nucleus/io/sam.py", line 237, in __init__
+    self._reader = sam_reader.SamReader.from_file(
+ValueError: NOT_FOUND: Could not open /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+parallel: This job failed:
+/opt/deepvariant/bin/make_examples_somatic --mode calling --ref /home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna --reads_tumor /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam --reads_normal /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam --examples '/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord@8.gz' --checkpoint /opt/models/deepsomatic/wes --regions chr1 --sample_name_normal HCC1395Normal --sample_name_tumor HCC1395Tumor --vsc_max_fraction_indels_for_non_target_sample 0.5 --vsc_max_fraction_snps_for_non_target_sample 0.5 --vsc_min_fraction_indels 0.05 --vsc_min_fraction_snps 0.029 --task 5
+
+real	0m7.794s
+user	0m7.292s
+sys	0m1.092s
+ubuntu@ip-172-31-0-10:~$ ls -lh ${OUTPUT_DIR}/HCC1395_deepsomatic_output.vcf.gz*
+ls: cannot access '/home/ubuntu/deepsomatic-wes-case-study/output/HCC1395_deepsomatic_output.vcf.gz*': No such file or directory
+ubuntu@ip-172-31-0-10:~$ BASE="/home/ubuntu/deepsomatic-wes-case-study"
+INPUT_DIR="${BASE}/input/data"
+OUTPUT_DIR="${BASE}/output"
+
+echo "INPUT_DIR = ${INPUT_DIR}"
+ls -lh ${INPUT_DIR}
+ls -lh ${INPUT_DIR}/HCC1395_wes.*chr1.bam*
+INPUT_DIR = /home/ubuntu/deepsomatic-wes-case-study/input/data
+total 242M
+-rw-rw-r-- 1 ubuntu ubuntu 242M Nov 30 19:14 GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna
+-rw-rw-r-- 1 ubuntu ubuntu   23 Nov 30 19:15 GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna.fai
+ls: cannot access '/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.*chr1.bam*': No such file or directory
+ubuntu@ip-172-31-0-10:~$ HTTPDIR=https://storage.googleapis.com/deepvariant/deepsomatic-case-studies/deepsomatic-chr1-case-studies
+
+# Tải normal BAM + index (cho chắc)
+curl -o ${INPUT_DIR}/HCC1395_wes.normal.chr1.bam \
+  ${HTTPDIR}/HCC1395_wes.normal.chr1.bam
+
+curl -o ${INPUT_DIR}/HCC1395_wes.normal.chr1.bam.bai \
+  ${HTTPDIR}/HCC1395_wes.normal.chr1.bam.bai
+
+# Tải tumor BAM + index
+curl -o ${INPUT_DIR}/HCC1395_wes.tumor.chr1.bam \
+  ${HTTPDIR}/HCC1395_wes.tumor.chr1.bam
+
+curl -o ${INPUT_DIR}/HCC1395_wes.tumor.chr1.bam.bai \
+  ${HTTPDIR}/HCC1395_wes.tumor.chr1.bam.bai
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 1325M  100 1325M    0     0  20.8M      0  0:01:03  0:01:03 --:--:-- 21.8M
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  368k  100  368k    0     0   272k      0  0:00:01  0:00:01 --:--:--  272k
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 1099M  100 1099M    0     0  18.7M      0  0:00:58  0:00:58 --:--:-- 18.7M
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  340k  100  340k    0     0   257k      0  0:00:01  0:00:01 --:--:--  257k
+ubuntu@ip-172-31-0-10:~$ ls -lh ${INPUT_DIR}/HCC1395_wes.*chr1.bam*
+-rw-rw-r-- 1 ubuntu ubuntu 1.3G Nov 30 19:19 /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam
+-rw-rw-r-- 1 ubuntu ubuntu 369K Nov 30 19:19 /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam.bai
+-rw-rw-r-- 1 ubuntu ubuntu 1.1G Nov 30 19:20 /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam
+-rw-rw-r-- 1 ubuntu ubuntu 341K Nov 30 19:20 /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam.bai
+ubuntu@ip-172-31-0-10:~$ rm -rf ${OUTPUT_DIR}/intermediate_results_dir
+mkdir -p ${OUTPUT_DIR}/intermediate_results_dir
+mkdir -p ${OUTPUT_DIR}/logs
+ubuntu@ip-172-31-0-10:~$ BIN_VERSION="1.9.0"
+
+sudo docker run \
+  -v ${INPUT_DIR}:${INPUT_DIR} \
+  -v ${OUTPUT_DIR}:${OUTPUT_DIR} \
+  google/deepsomatic:"${BIN_VERSION}" \
+  run_deepsomatic \
+    --model_type=WES \
+    --ref=${INPUT_DIR}/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna \
+    --reads_normal=${INPUT_DIR}/HCC1395_wes.normal.chr1.bam \
+    --reads_tumor=${INPUT_DIR}/HCC1395_wes.tumor.chr1.bam \
+    --output_vcf=${OUTPUT_DIR}/HCC1395_deepsomatic_output.vcf.gz \
+    --sample_name_tumor="HCC1395Tumor" \
+    --sample_name_normal="HCC1395Normal" \
+    --num_shards=$(nproc) \
+    --logging_dir=${OUTPUT_DIR}/logs \
+    --intermediate_results_dir=${OUTPUT_DIR}/intermediate_results_dir \
+    --regions=chr1
+2025-11-30 19:21:23.003412: I tensorflow/core/util/port.cc:110] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-11-30 19:21:23.006107: I tensorflow/tsl/cuda/cudart_stub.cc:28] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-30 19:21:23.055895: I tensorflow/tsl/cuda/cudart_stub.cc:28] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-30 19:21:23.056586: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-30 19:21:24.162210: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+I1130 19:21:25.971252 129082307301824 run_deepsomatic.py:762] Re-using the directory for intermediate results in /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir
+I1130 19:21:25.971946 129082307301824 run_deepsomatic.py:981] env = {'HOSTNAME': '30cbfcdf8901', 'PYTHON_VERSION': '3.10', 'DV_GPU_BUILD': '0', 'PWD': '/opt/deepvariant', 'VERSION_DEEPSOMATIC': '1.9.0', 'TF_ENABLE_ONEDNN_OPTS': '1', 'HOME': '/root', 'SHLVL': '1', 'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/conda/bin:/opt/conda/envs/bio/bin:/opt/deepvariant/bin/deepsomatic:/opt/deepvariant/bin', '_': '/usr/bin/python3', 'LC_CTYPE': 'C.UTF-8', 'TPU_ML_PLATFORM': 'Tensorflow', 'TF2_BEHAVIOR': '1', 'TF_CPP_MIN_LOG_LEVEL': '1'}
+
+***** Intermediate results will be written to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir in docker. ****
+
+
+***** Running the command:*****
+time seq 0 7 | parallel -q --halt 2 --line-buffer /opt/deepvariant/bin/make_examples_somatic --mode calling --ref "/home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna" --reads_tumor "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam" --reads_normal "/home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam" --examples "/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord@8.gz" --checkpoint "/opt/models/deepsomatic/wes" --regions "chr1" --sample_name_normal "HCC1395Normal" --sample_name_tumor "HCC1395Tumor" --vsc_max_fraction_indels_for_non_target_sample "0.5" --vsc_max_fraction_snps_for_non_target_sample "0.5" --vsc_min_fraction_indels "0.05" --vsc_min_fraction_snps "0.029" --task {}
+
+2025-11-30 19:21:29.451181: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:21:29.451721: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:21:29.553004: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:21:29.519144: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:21:29.491799: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:21:29.555782: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:21:29.540674: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-11-30 19:21:29.625099: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+/tmp/Bazel.runfiles_6j5l5mib/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.636567 131495144694208 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.637156 131495144694208 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.637644 131495144694208 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.639786 131495144694208 make_examples_core.py:348] Task 0/8: Preparing inputs
+I1130 19:21:32.647407 131495144694208 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.655769 131495144694208 make_examples_core.py:348] Task 0/8: Common contigs are ['chr1']
+/tmp/Bazel.runfiles_0rwa1kfn/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.641450 131008840405440 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.642087 131008840405440 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.642632 131008840405440 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.645025 131008840405440 make_examples_core.py:348] Task 5/8: Preparing inputs
+I1130 19:21:32.653611 131008840405440 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.662942 131008840405440 make_examples_core.py:348] Task 5/8: Common contigs are ['chr1']
+/tmp/Bazel.runfiles_w6_9369a/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.613757 127264649978304 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.614376 127264649978304 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.614908 127264649978304 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.617390 127264649978304 make_examples_core.py:348] Task 7/8: Preparing inputs
+I1130 19:21:32.626330 127264649978304 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.635086 127264649978304 make_examples_core.py:348] Task 7/8: Common contigs are ['chr1']
+/tmp/Bazel.runfiles_xfrpfz94/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.720728 135484218577344 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.721336 135484218577344 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.721855 135484218577344 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.724254 135484218577344 make_examples_core.py:348] Task 4/8: Preparing inputs
+I1130 19:21:32.733292 135484218577344 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.742560 135484218577344 make_examples_core.py:348] Task 4/8: Common contigs are ['chr1']
+/tmp/Bazel.runfiles_iv4edpfo/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.729806 137479402525120 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.730343 137479402525120 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.730798 137479402525120 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.732926 137479402525120 make_examples_core.py:348] Task 6/8: Preparing inputs
+I1130 19:21:32.740713 137479402525120 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.748914 137479402525120 make_examples_core.py:348] Task 6/8: Common contigs are ['chr1']
+/tmp/Bazel.runfiles_hmrmzwbx/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.747910 130672896418240 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.748470 130672896418240 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.748941 130672896418240 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.751116 130672896418240 make_examples_core.py:348] Task 3/8: Preparing inputs
+I1130 19:21:32.759014 130672896418240 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.767224 130672896418240 make_examples_core.py:348] Task 3/8: Common contigs are ['chr1']
+/tmp/Bazel.runfiles_xrclp8cn/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.773638 137612177342912 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.774277 137612177342912 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.774834 137612177342912 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.777337 137612177342912 make_examples_core.py:348] Task 1/8: Preparing inputs
+I1130 19:21:32.786033 137612177342912 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.795405 137612177342912 make_examples_core.py:348] Task 1/8: Common contigs are ['chr1']
+/tmp/Bazel.runfiles_zqq1tb_x/runfiles/absl_py/absl/flags/_validators.py:233: UserWarning: Flag --mode has a non-None default value; therefore, mark_flag_as_required will pass even if flag is not specified in the command line!
+  mark_flag_as_required(flag_name, flag_values)
+I1130 19:21:32.881932 132021890716096 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:21:32.882579 132021890716096 make_examples_options.py:1145] Parsing AUX Fields: []
+W1130 19:21:32.883073 132021890716096 make_examples_options.py:1192] Automatically setting --trim_reads_for_pileup to True because --alt_aligned_pileup is set.
+I1130 19:21:32.885550 132021890716096 make_examples_core.py:348] Task 2/8: Preparing inputs
+I1130 19:21:32.894587 132021890716096 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:32.904254 132021890716096 make_examples_core.py:348] Task 2/8: Common contigs are ['chr1']
+I1130 19:21:34.140069 131495144694208 make_examples_core.py:348] Task 0/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.140404     123 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.247723 131495144694208 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.245330 137479402525120 make_examples_core.py:348] Task 6/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.245702     127 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.241944 131008840405440 make_examples_core.py:348] Task 5/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.242278     124 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.255306 130672896418240 make_examples_core.py:348] Task 3/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.255721     129 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.134369 127264649978304 make_examples_core.py:348] Task 7/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.134761     125 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.242974 127264649978304 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.288068 135484218577344 make_examples_core.py:348] Task 4/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.288456     126 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.363800 137479402525120 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.354820 131008840405440 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.373221 130672896418240 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.353408 137612177342912 make_examples_core.py:348] Task 1/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.353778     128 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.404809 135484218577344 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.428064 132021890716096 make_examples_core.py:348] Task 2/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1764530494.428456     130 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.462185 137612177342912 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.543256 132021890716096 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.normal.chr1.bam with NativeSamReader
+I1130 19:21:34.693812 131495144694208 make_examples_core.py:348] Task 0/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.694306     123 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.693715 127264649978304 make_examples_core.py:348] Task 7/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.694248     125 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.805162 131008840405440 make_examples_core.py:348] Task 5/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.805706     124 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.808648 131495144694208 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:34.812434 130672896418240 make_examples_core.py:348] Task 3/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.813019     129 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.808802 127264649978304 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:34.821192 137479402525120 make_examples_core.py:348] Task 6/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.821814     127 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.854784 135484218577344 make_examples_core.py:348] Task 4/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.855363     126 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.896171 137612177342912 make_examples_core.py:348] Task 1/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.896745     128 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:34.925198 131008840405440 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:34.928167 130672896418240 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:34.966711 137479402525120 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:34.977396 135484218577344 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:34.977427 132021890716096 make_examples_core.py:348] Task 2/8: Starting from v0.9.0, --use_ref_for_cram is default to true. If you are using CRAM input, note that we will decode CRAM using the reference you passed in with --ref
+I0000 00:00:1764530494.977978     130 sam_reader.cc:1001] Setting HTS_OPT_BLOCK_SIZE to 134217728
+I1130 19:21:35.020174 137612177342912 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.103989 132021890716096 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.241291 131495144694208 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.247018 131495144694208 make_examples_core.py:348] Task 0/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00000-of-00008.gz
+I1130 19:21:35.247227 131495144694208 make_examples_core.py:348] Task 0/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.254593 127264649978304 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.260515 127264649978304 make_examples_core.py:348] Task 7/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00007-of-00008.gz
+I1130 19:21:35.260730 127264649978304 make_examples_core.py:348] Task 7/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.266154 131495144694208 make_examples_core.py:348] Task 0/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:21:35.279963 127264649978304 make_examples_core.py:348] Task 7/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:21:35.362162 130672896418240 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.367750 130672896418240 make_examples_core.py:348] Task 3/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00003-of-00008.gz
+I1130 19:21:35.367953 130672896418240 make_examples_core.py:348] Task 3/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.380199 131008840405440 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.386214 131008840405440 make_examples_core.py:348] Task 5/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00005-of-00008.gz
+I1130 19:21:35.386426 131008840405440 make_examples_core.py:348] Task 5/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.387123 130672896418240 make_examples_core.py:348] Task 3/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:21:35.406080 131008840405440 make_examples_core.py:348] Task 5/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:21:35.427099 135484218577344 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.432161 135484218577344 make_examples_core.py:348] Task 4/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00004-of-00008.gz
+I1130 19:21:35.432359 135484218577344 make_examples_core.py:348] Task 4/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.448672 135484218577344 make_examples_core.py:348] Task 4/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:21:35.457457 137612177342912 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.463340 137612177342912 make_examples_core.py:348] Task 1/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00001-of-00008.gz
+I1130 19:21:35.463587 137612177342912 make_examples_core.py:348] Task 1/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.482869 137612177342912 make_examples_core.py:348] Task 1/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:21:35.496408 137479402525120 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.502610 137479402525120 make_examples_core.py:348] Task 6/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00006-of-00008.gz
+I1130 19:21:35.502792 137479402525120 make_examples_core.py:348] Task 6/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.519551 137479402525120 make_examples_core.py:348] Task 6/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:21:35.536580 132021890716096 genomics_reader.py:223] Reading /home/ubuntu/deepsomatic-wes-case-study/input/data/HCC1395_wes.tumor.chr1.bam with NativeSamReader
+I1130 19:21:35.541714 132021890716096 make_examples_core.py:348] Task 2/8: Writing examples to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00002-of-00008.gz
+I1130 19:21:35.541907 132021890716096 make_examples_core.py:348] Task 2/8: Overhead for preparing inputs: 2 seconds
+I1130 19:21:35.558902 132021890716096 make_examples_core.py:348] Task 2/8: 0 candidates (0 examples) [0.02s elapsed]
+I1130 19:27:42.913925 131495144694208 make_examples_core.py:348] Task 0/8: 2001 candidates (2130 examples) [367.65s elapsed]
+I1130 19:27:43.719063 131008840405440 make_examples_core.py:348] Task 5/8: 2000 candidates (2097 examples) [368.31s elapsed]
+I1130 19:27:45.760425 137479402525120 make_examples_core.py:348] Task 6/8: 2000 candidates (2032 examples) [370.24s elapsed]
+I1130 19:28:09.572683 137612177342912 make_examples_core.py:348] Task 1/8: 2001 candidates (2099 examples) [394.09s elapsed]
+I1130 19:28:14.133737 135484218577344 make_examples_core.py:348] Task 4/8: 2014 candidates (2104 examples) [398.68s elapsed]
+I1130 19:28:19.637079 130672896418240 make_examples_core.py:348] Task 3/8: 2000 candidates (2093 examples) [404.25s elapsed]
+I1130 19:28:21.076900 132021890716096 make_examples_core.py:348] Task 2/8: 2000 candidates (2071 examples) [405.52s elapsed]
+I1130 19:28:42.471019 127264649978304 make_examples_core.py:348] Task 7/8: 2000 candidates (2089 examples) [427.19s elapsed]
+I1130 19:35:13.825065 137479402525120 make_examples_core.py:348] Task 6/8: 4000 candidates (4118 examples) [448.06s elapsed]
+I1130 19:35:24.547715 131495144694208 make_examples_core.py:348] Task 0/8: 4001 candidates (4211 examples) [461.63s elapsed]
+I1130 19:35:24.525615 131008840405440 make_examples_core.py:348] Task 5/8: 4000 candidates (4152 examples) [460.81s elapsed]
+I1130 19:35:37.893783 137612177342912 make_examples_core.py:348] Task 1/8: 4000 candidates (4214 examples) [448.32s elapsed]
+I1130 19:35:45.823154 135484218577344 make_examples_core.py:348] Task 4/8: 4004 candidates (4168 examples) [451.69s elapsed]
+I1130 19:35:56.249796 132021890716096 make_examples_core.py:348] Task 2/8: 4000 candidates (4154 examples) [455.17s elapsed]
+I1130 19:35:59.276563 127264649978304 make_examples_core.py:348] Task 7/8: 4005 candidates (4160 examples) [436.81s elapsed]
+I1130 19:36:03.290843 130672896418240 make_examples_core.py:348] Task 3/8: 4001 candidates (4174 examples) [463.65s elapsed]
+I1130 19:41:20.854897 137479402525120 make_examples_core.py:348] Task 6/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00006-of-00008.gz.example_info.json
+I1130 19:41:20.855122 137479402525120 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:20.855462 137479402525120 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:20.856167 137479402525120 make_examples_core.py:348] Task 6/8: Summary stats:
+	5736 candidate variants found
+	5918 examples written
+I1130 19:41:22.949255 131008840405440 make_examples_core.py:348] Task 5/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00005-of-00008.gz.example_info.json
+I1130 19:41:22.949426 131008840405440 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:22.949711 131008840405440 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:22.950231 131008840405440 make_examples_core.py:348] Task 5/8: Summary stats:
+	5824 candidate variants found
+	6084 examples written
+I1130 19:41:31.769234 132021890716096 make_examples_core.py:348] Task 2/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00002-of-00008.gz.example_info.json
+I1130 19:41:31.769454 132021890716096 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:31.769823 132021890716096 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:31.770509 132021890716096 make_examples_core.py:348] Task 2/8: Summary stats:
+	5623 candidate variants found
+	5834 examples written
+I1130 19:41:37.728054 135484218577344 make_examples_core.py:348] Task 4/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00004-of-00008.gz.example_info.json
+I1130 19:41:37.728228 135484218577344 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:37.728499 135484218577344 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:37.729011 135484218577344 make_examples_core.py:348] Task 4/8: Summary stats:
+	5831 candidate variants found
+	6094 examples written
+I1130 19:41:37.992731 127264649978304 make_examples_core.py:348] Task 7/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00007-of-00008.gz.example_info.json
+I1130 19:41:37.992960 127264649978304 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:37.993328 127264649978304 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:37.994058 127264649978304 make_examples_core.py:348] Task 7/8: Summary stats:
+	5662 candidate variants found
+	5904 examples written
+I1130 19:41:38.327678 137612177342912 make_examples_core.py:348] Task 1/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00001-of-00008.gz.example_info.json
+I1130 19:41:38.327854 137612177342912 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:38.328108 137612177342912 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:38.328639 137612177342912 make_examples_core.py:348] Task 1/8: Summary stats:
+	5804 candidate variants found
+	6086 examples written
+I1130 19:41:48.018514 131495144694208 make_examples_core.py:348] Task 0/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00000-of-00008.gz.example_info.json
+I1130 19:41:48.018683 131495144694208 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:48.018940 131495144694208 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:48.019671 131495144694208 make_examples_core.py:348] Task 0/8: Summary stats:
+	5990 candidate variants found
+	6262 examples written
+I1130 19:41:49.325572 130672896418240 make_examples_core.py:348] Task 3/8: Writing example info to /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00003-of-00008.gz.example_info.json
+I1130 19:41:49.325743 130672896418240 make_examples_core.py:3474] example_shape = [200, 221, 7]
+I1130 19:41:49.325994 130672896418240 make_examples_core.py:3475] example_channels = [1, 2, 3, 4, 5, 6, 19]
+I1130 19:41:49.326522 130672896418240 make_examples_core.py:348] Task 3/8: Summary stats:
+	5706 candidate variants found
+	5924 examples written
+
+real	20m24.188s
+user	160m53.761s
+sys	0m23.988s
+
+***** Running the command:*****
+time /opt/deepvariant/bin/call_variants --outfile "/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/call_variants_output.tfrecord.gz" --examples "/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord@8.gz" --checkpoint "/opt/models/deepsomatic/wes"
+
+2025-11-30 19:41:52.057627: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+I1130 19:41:54.150529 129255389180352 call_variants.py:965] call_variants: env = {'HOSTNAME': '30cbfcdf8901', 'PYTHON_VERSION': '3.10', 'TF_CPP_MIN_LOG_LEVEL': '1', 'DV_GPU_BUILD': '0', 'PWD': '/opt/deepvariant', 'VERSION_DEEPSOMATIC': '1.9.0', 'TF_ENABLE_ONEDNN_OPTS': '1', '_': '/usr/bin/python3', 'HOME': '/root', 'TPU_ML_PLATFORM': 'Tensorflow', 'SHLVL': '3', 'LC_CTYPE': 'C.UTF-8', 'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/conda/bin:/opt/conda/envs/bio/bin:/opt/deepvariant/bin/deepsomatic:/opt/deepvariant/bin', 'TF2_BEHAVIOR': '1', 'PYTHONPATH': '/tmp/Bazel.runfiles_4brl838i/runfiles:/tmp/Bazel.runfiles_4brl838i/runfiles/com_google_protobuf/python:/tmp/Bazel.runfiles_4brl838i/runfiles/absl_py:/tmp/Bazel.runfiles_4brl838i/runfiles/bazel_tools:/tmp/Bazel.runfiles_4brl838i/runfiles/com_google_deepvariant:/tmp/Bazel.runfiles_4brl838i/runfiles/com_google_protobuf:/tmp/Bazel.runfiles_4brl838i/runfiles/six_archive', 'RUNFILES_DIR': '/tmp/Bazel.runfiles_4brl838i/runfiles'}
+I1130 19:41:54.252158 129255389180352 call_variants.py:813] Total 1 writing processes started.
+I1130 19:41:54.253229 129255389180352 call_variants.py:824] Use saved model: True
+I1130 19:41:54.254035 129255389180352 dv_utils.py:332] From /home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/make_examples_somatic.tfrecord-00000-of-00008.gz.example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:42:01.965565 129255389180352 dv_utils.py:332] From /opt/models/deepsomatic/wes/example_info.json: Shape of input examples: [200, 221, 7], Channels of input examples: [1, 2, 3, 4, 5, 6, 19].
+I1130 19:42:01.965769 129255389180352 call_variants.py:858] example_shape: [200, 221, 7]
+I1130 19:42:14.765151 129255389180352 call_variants.py:936] Predicted 1024 examples in 1 batches [1.227 sec per 100].
+I1130 19:49:38.821204 129255389180352 call_variants.py:592] Wrote 48106 examples over 47 batches. Closing writer.
+I1130 19:49:38.863024 129255389180352 call_variants.py:1014] Complete: call_variants.
+
+real	7m50.966s
+user	56m26.524s
+sys	0m17.760s
+
+***** Running the command:*****
+time /opt/deepvariant/bin/postprocess_variants --ref "/home/ubuntu/deepsomatic-wes-case-study/input/data/GCA_000001405.15_GRCh38_no_alt_analysis_set.chr1.fna" --infile "/home/ubuntu/deepsomatic-wes-case-study/output/intermediate_results_dir/call_variants_output.tfrecord.gz" --outfile "/home/ubuntu/deepsomatic-wes-case-study/output/HCC1395_deepsomatic_output.vcf.gz" --process_somatic=true
+
+2025-11-30 19:49:43.075180: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+I1130 19:49:45.067435 124320973087168 postprocess_variants.py:1480] Using sample name from call_variants output. Sample name: HCC1395Tumor
+I1130 19:49:45.097007 124320973087168 postprocess_variants.py:1735] Running postprocess_variants with parallelism using 8 CPUs over 8 partitions.
+I1130 19:49:45.315484 124320973087168 postprocess_variants.py:1346] Processing region chr1:248956416-chr1:248956422
+I1130 19:49:45.315980 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.002002108097076416 minutes
+I1130 19:49:45.318078 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.0020369688669840493 minutes
+I1130 19:49:45.318301 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.318558 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmpumgvze6t.gz
+I1130 19:49:45.320269 124320973087168 genomics_writer.py:184] Writing /tmp/tmpumgvze6t.gz with NativeVcfWriter
+I1130 19:49:45.326455 124320973087168 postprocess_variants.py:1584] VCF creation took 0.00013529459635416667 minutes
+I1130 19:49:45.340398 124320973087168 postprocess_variants.py:1346] Processing region chr1:93358656-chr1:124478208
+I1130 19:49:45.340886 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.0024340033531188967 minutes
+I1130 19:49:45.342306 124320973087168 postprocess_variants.py:1357] Transforming call_variants_output to variants.
+I1130 19:49:45.342382 124320973087168 postprocess_variants.py:1365] Processed 4395 variants.
+I1130 19:49:45.342509 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.0024609883626302083 minutes
+I1130 19:49:45.342578 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.342622 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmppxfb8a_d.gz
+I1130 19:49:45.343685 124320973087168 genomics_writer.py:184] Writing /tmp/tmppxfb8a_d.gz with NativeVcfWriter
+I1130 19:49:45.346262 124320973087168 postprocess_variants.py:1196] 1 variants written.
+I1130 19:49:45.354175 124320973087168 postprocess_variants.py:1346] Processing region chr1:217836864-chr1:248956416
+I1130 19:49:45.354646 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.002650002638498942 minutes
+I1130 19:49:45.356087 124320973087168 postprocess_variants.py:1357] Transforming call_variants_output to variants.
+I1130 19:49:45.356165 124320973087168 postprocess_variants.py:1365] Processed 6414 variants.
+I1130 19:49:45.356284 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.002678394317626953 minutes
+I1130 19:49:45.356352 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.356399 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmphvqqg860.gz
+I1130 19:49:45.357406 124320973087168 genomics_writer.py:184] Writing /tmp/tmphvqqg860.gz with NativeVcfWriter
+I1130 19:49:45.360078 124320973087168 postprocess_variants.py:1196] 1 variants written.
+I1130 19:49:45.437721 124320973087168 postprocess_variants.py:1346] Processing region chr1:124478208-chr1:155597760
+I1130 19:49:45.438333 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.004055821895599365 minutes
+I1130 19:49:45.440138 124320973087168 postprocess_variants.py:1357] Transforming call_variants_output to variants.
+I1130 19:49:45.440238 124320973087168 postprocess_variants.py:1365] Processed 4088 variants.
+I1130 19:49:45.440046 124320973087168 postprocess_variants.py:1346] Processing region chr1:0-chr1:62239104
+I1130 19:49:45.440373 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.004090150197347005 minutes
+I1130 19:49:45.440458 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.440543 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmp74tw63w6.gz
+I1130 19:49:45.440456 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.004098439216613769 minutes
+I1130 19:49:45.441840 124320973087168 postprocess_variants.py:1357] Transforming call_variants_output to variants.
+I1130 19:49:45.441815 124320973087168 genomics_writer.py:184] Writing /tmp/tmp74tw63w6.gz with NativeVcfWriter
+I1130 19:49:45.441914 124320973087168 postprocess_variants.py:1365] Processed 16413 variants.
+I1130 19:49:45.442007 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.00412447452545166 minutes
+I1130 19:49:45.442072 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.442119 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmpigrflnmk.gz
+I1130 19:49:45.443342 124320973087168 genomics_writer.py:184] Writing /tmp/tmpigrflnmk.gz with NativeVcfWriter
+I1130 19:49:45.444898 124320973087168 postprocess_variants.py:1196] 1 variants written.
+I1130 19:49:45.446068 124320973087168 postprocess_variants.py:1346] Processing region chr1:62239104-chr1:93358656
+I1130 19:49:45.446634 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.0041986505190531416 minutes
+I1130 19:49:45.448466 124320973087168 postprocess_variants.py:1357] Transforming call_variants_output to variants.
+I1130 19:49:45.448586 124320973087168 postprocess_variants.py:1365] Processed 4082 variants.
+I1130 19:49:45.448776 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.004234107335408529 minutes
+I1130 19:49:45.448902 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.448971 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmp2ulbmw4l.gz
+I1130 19:49:45.448972 124320973087168 postprocess_variants.py:1196] 1 variants written.
+I1130 19:49:45.450292 124320973087168 genomics_writer.py:184] Writing /tmp/tmp2ulbmw4l.gz with NativeVcfWriter
+I1130 19:49:45.453445 124320973087168 postprocess_variants.py:1196] 1 variants written.
+I1130 19:49:45.456644 124320973087168 postprocess_variants.py:1346] Processing region chr1:186717312-chr1:217836864
+I1130 19:49:45.457293 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.004365082581837972 minutes
+I1130 19:49:45.459363 124320973087168 postprocess_variants.py:1357] Transforming call_variants_output to variants.
+I1130 19:49:45.459562 124320973087168 postprocess_variants.py:1365] Processed 5624 variants.
+I1130 19:49:45.459765 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.004406491915384929 minutes
+I1130 19:49:45.459896 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.459985 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmpww3hqs8o.gz
+I1130 19:49:45.461442 124320973087168 genomics_writer.py:184] Writing /tmp/tmpww3hqs8o.gz with NativeVcfWriter
+I1130 19:49:45.465082 124320973087168 postprocess_variants.py:1196] 1 variants written.
+I1130 19:49:45.479198 124320973087168 postprocess_variants.py:1346] Processing region chr1:155597760-chr1:186717312
+I1130 19:49:45.479847 124320973087168 postprocess_variants.py:1353] CVO sorting took 0.004745078086853027 minutes
+I1130 19:49:45.482070 124320973087168 postprocess_variants.py:1357] Transforming call_variants_output to variants.
+I1130 19:49:45.482219 124320973087168 postprocess_variants.py:1365] Processed 7090 variants.
+I1130 19:49:45.482405 124320973087168 postprocess_variants.py:1568] Processing variants (and writing to temporary files) took 0.004787802696228027 minutes
+I1130 19:49:45.482566 124320973087168 postprocess_variants.py:1576] Writing variants to somatic VCF.
+I1130 19:49:45.482659 124320973087168 postprocess_variants.py:1182] Writing output to VCF file: /tmp/tmpqwiele97.gz
+I1130 19:49:45.484135 124320973087168 genomics_writer.py:184] Writing /tmp/tmpqwiele97.gz with NativeVcfWriter
+I1130 19:49:45.487818 124320973087168 postprocess_variants.py:1196] 1 variants written.
+I1130 19:49:46.374277 124320973087168 postprocess_variants.py:1584] VCF creation took 0.01719456911087036 minutes
+I1130 19:49:46.779049 124320973087168 postprocess_variants.py:1584] VCF creation took 0.02371138334274292 minutes
+I1130 19:49:46.836566 124320973087168 postprocess_variants.py:1584] VCF creation took 0.023127583662668864 minutes
+I1130 19:49:46.842144 124320973087168 postprocess_variants.py:1584] VCF creation took 0.02336105505625407 minutes
+I1130 19:49:47.127751 124320973087168 postprocess_variants.py:1584] VCF creation took 0.02779736916224162 minutes
+I1130 19:49:47.392168 124320973087168 postprocess_variants.py:1584] VCF creation took 0.03182680209477742 minutes
+I1130 19:49:48.397804 124320973087168 postprocess_variants.py:1584] VCF creation took 0.04926178057988485 minutes
+Checking the headers of 8 files.
+Done, the headers are compatible.
+I1130 19:49:48.496181 124320973087168 postprocess_variants.py:1794] Indexing VCF and gVCF took 0.0008727153142293294 minutes.
+
+real	0m8.252s
+user	0m18.801s
+sys	0m1.351s
+ubuntu@ip-172-31-0-10:~$ ls -lh ${OUTPUT_DIR}/HCC1395_deepsomatic_output.vcf.gz*
+ls -lh ${OUTPUT_DIR}/intermediate_results_dir
+-rw-r--r-- 1 root root 740K Nov 30 19:49 /home/ubuntu/deepsomatic-wes-case-study/output/HCC1395_deepsomatic_output.vcf.gz
+-rw-r--r-- 1 root root  87K Nov 30 19:49 /home/ubuntu/deepsomatic-wes-case-study/output/HCC1395_deepsomatic_output.vcf.gz.tbi
+total 317M
+-rw-r--r-- 1 root root 2.0M Nov 30 19:49 call_variants_output-00000-of-00001.tfrecord.gz
+-rw-r--r-- 1 root root  41M Nov 30 19:41 make_examples_somatic.tfrecord-00000-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00000-of-00008.gz.example_info.json
+-rw-r--r-- 1 root root  42M Nov 30 19:41 make_examples_somatic.tfrecord-00001-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00001-of-00008.gz.example_info.json
+-rw-r--r-- 1 root root  39M Nov 30 19:41 make_examples_somatic.tfrecord-00002-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00002-of-00008.gz.example_info.json
+-rw-r--r-- 1 root root  40M Nov 30 19:41 make_examples_somatic.tfrecord-00003-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00003-of-00008.gz.example_info.json
+-rw-r--r-- 1 root root  40M Nov 30 19:41 make_examples_somatic.tfrecord-00004-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00004-of-00008.gz.example_info.json
+-rw-r--r-- 1 root root  40M Nov 30 19:41 make_examples_somatic.tfrecord-00005-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00005-of-00008.gz.example_info.json
+-rw-r--r-- 1 root root  38M Nov 30 19:41 make_examples_somatic.tfrecord-00006-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00006-of-00008.gz.example_info.json
+-rw-r--r-- 1 root root  39M Nov 30 19:41 make_examples_somatic.tfrecord-00007-of-00008.gz
+-rw-r--r-- 1 root root   80 Nov 30 19:41 make_examples_somatic.tfrecord-00007-of-00008.gz.example_info.json
+ubuntu@ip-172-31-0-10:~$ BASE="/home/ubuntu/deepsomatic-wes-case-study"
+OUTPUT_DIR="${BASE}/output"
+
+cd "${OUTPUT_DIR}"
+
+# Gom intermediate + VCF vào một gói
+tar czvf deepsomatic_wes_chr1_for_colab.tgz \
+  intermediate_results_dir \
+  HCC1395_deepsomatic_output.vcf.gz \
+  HCC1395_deepsomatic_output.vcf.gz.tbi
+intermediate_results_dir/
+intermediate_results_dir/make_examples_somatic.tfrecord-00000-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00005-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00001-of-00008.gz
+intermediate_results_dir/call_variants_output-00000-of-00001.tfrecord.gz
+intermediate_results_dir/make_examples_somatic.tfrecord-00004-of-00008.gz
+intermediate_results_dir/make_examples_somatic.tfrecord-00003-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00003-of-00008.gz
+intermediate_results_dir/make_examples_somatic.tfrecord-00007-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00006-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00002-of-00008.gz
+intermediate_results_dir/make_examples_somatic.tfrecord-00004-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00001-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00007-of-00008.gz
+intermediate_results_dir/make_examples_somatic.tfrecord-00006-of-00008.gz
+intermediate_results_dir/make_examples_somatic.tfrecord-00002-of-00008.gz.example_info.json
+intermediate_results_dir/make_examples_somatic.tfrecord-00000-of-00008.gz
+intermediate_results_dir/make_examples_somatic.tfrecord-00005-of-00008.gz
+HCC1395_deepsomatic_output.vcf.gz
+HCC1395_deepsomatic_output.vcf.gz.tbi
+ubuntu@ip-172-31-0-10:~/deepsomatic-wes-case-study/output$ BASE="/home/ubuntu/deepsomatic-wes-case-study"
+OUTPUT_DIR="${BASE}/output"
+ls -lh ${OUTPUT_DIR}/deepsomatic_wes_chr1_for_colab.tgz
+-rw-rw-r-- 1 ubuntu ubuntu 258M Nov 30 20:00 /home/ubuntu/deepsomatic-wes-case-study/output/deepsomatic_wes_chr1_for_colab.tgz
+ubuntu@ip-172-31-0-10:~/deepsomatic-wes-case-study/output$ exit 
+logout
+Connection to 15.134.138.93 closed.
+(base) tiepnguyen@Tiep-Nguyen AWS % cd ..
+(base) tiepnguyen@Tiep-Nguyen Downloads % cd ..
+(base) tiepnguyen@Tiep-Nguyen ~ % KEY=~/Downloads/AWS/deepsomaticwes.pem
+(base) tiepnguyen@Tiep-Nguyen ~ % EC2_HOST=15.134.138.93
+(base) tiepnguyen@Tiep-Nguyen ~ % scp -i "$KEY" \
+    ubuntu@"$EC2_HOST":/home/ubuntu/deepsomatic-wes-case-study/output/deepsomatic_wes_chr1_for_colab.tgz \
+    ~/Downloads/
+deepsomatic_wes_chr 100%  258MB 711.6KB/s   06:11    
+(base) tiepnguyen@Tiep-Nguyen ~ % ls -lh ~/Downloads/deepsomatic_wes_chr1_for_colab.tgz
+-rw-r--r--  1 tiepnguyen  staff   258M Dec  1 03:18 /Users/tiepnguyen/Downloads/deepsomatic_wes_chr1_for_colab.tgz
+(base) tiepnguyen@Tiep-Nguyen ~ % 

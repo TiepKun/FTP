@@ -46,10 +46,11 @@ private:
     // Permissions
     bool cmd_set_permission(const vector<string> &tokens);
     bool cmd_check_permission(const vector<string> &tokens);
-    
+
     // Unzip
     bool cmd_unzip(const vector<string> &tokens);
 
+    uint64_t compute_disk_usage(const string &base_dir);
     bool ensure_authenticated();
     uint64_t file_size(const string &path);
     bool check_file_permission(const string &path,

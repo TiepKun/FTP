@@ -446,6 +446,19 @@ bool NetworkClient::list_deleted(string &rows, string &err) {
     return true;
 }
 
+bool NetworkClient::set_permission(const string &path, const string &target_user, bool can_view, bool can_download, bool can_edit, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "SET_PERMISSION " + path + " " + target_user + " " +
+                 (can_view ? "1" : "0") + " " +
+                 (can_download ? "1" : "0") + " " +
+                 (can_edit ? "1" : "0");
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
 bool NetworkClient::list_files_db(string &paths, string &err) {
     paths.clear();
 

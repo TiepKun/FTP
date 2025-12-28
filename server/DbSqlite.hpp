@@ -38,6 +38,7 @@ public:
                            string &err) override;
 
     bool list_files(int owner_id, string &paths, string &err) override;
+    bool list_shared_files(int user_id, string &paths, string &err) override;
 
     // File operations
     bool delete_file_entry(int owner_id, const string &path, string &err) override;

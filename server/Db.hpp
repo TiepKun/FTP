@@ -45,6 +45,7 @@ public:
                                    string &err) = 0;
 
     virtual bool list_files(int owner_id, string &paths, string &err) = 0;
+    virtual bool list_shared_files(int user_id, string &paths, string &err) = 0;
 
     // File operations
     virtual bool delete_file_entry(int owner_id, const string &path, string &err) = 0;

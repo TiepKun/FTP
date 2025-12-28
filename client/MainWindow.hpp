@@ -16,6 +16,7 @@ protected:
     void on_btn_save_clicked();
     void on_btn_upload_clicked();
     void on_btn_download_clicked();
+    void on_btn_refresh_clicked();
     void on_btn_pause_upload_clicked();
     void on_btn_resume_upload_clicked();
     void on_btn_pause_download_clicked();
@@ -28,6 +29,7 @@ protected:
     void on_btn_delete_clicked();
     void on_btn_restore_clicked();
     void on_btn_list_deleted_clicked();
+    void on_btn_share_clicked();
     std::vector<std::string> collect_folder_paths();
     bool choose_folder_dialog(std::string &out_path);
     void refresh_file_list();
@@ -42,6 +44,7 @@ protected:
     Gtk::Button btn_load_;
     Gtk::Button btn_save_;
     Gtk::Button btn_upload_;
+    Gtk::Button btn_refresh_;
     Gtk::Button btn_download_;
     Gtk::Button btn_pause_up_;
     Gtk::Button btn_resume_up_;
@@ -73,10 +76,14 @@ protected:
 
     // Helpers
     void add_path_to_tree(const std::string &path, const std::string &size_str, bool is_folder);
+    Gtk::TreeModel::iterator find_iter_by_path(const std::string &path, const Gtk::TreeModel::Children &children);
+    void expand_and_select(const std::string &path);
     std::vector<std::string> split_path(const std::string &path);
     void upload_folder_recursive(const std::string &local_root,
                                  const std::string &remote_root,
                                  std::error_code &ec_out,
                                  std::string &err_out,
                                  bool &ok_out);
+    struct EntryMeta { std::string path; bool is_folder; };
+    std::vector<EntryMeta> latest_entries_;
 };

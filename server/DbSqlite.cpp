@@ -134,6 +134,28 @@ CREATE INDEX IF NOT EXISTS idx_transfer_session_user_path
         }
     }
 
+    if (!has_column("file_acl", "perm_download")) {
+        if (!add_column_if_missing("file_acl", "perm_download INTEGER DEFAULT 1")) {
+            return false;
+        }
+    }
+    if (!has_column("file_acl", "perm_write")) {
+        if (!add_column_if_missing("file_acl", "perm_write INTEGER DEFAULT 0")) {
+            return false;
+        }
+    }
+
+    // Ensure unique index for (file_id, grantee_id) so ON CONFLICT works
+    const char *sql_acl_unique =
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_acl_file_grantee "
+        "ON file_acl(file_id, grantee_id);";
+    rc = sqlite3_exec(db_, sql_acl_unique, nullptr, nullptr, &errmsg);
+    if (rc != SQLITE_OK) {
+        err = errmsg ? errmsg : "Unknown SQLite error";
+        if (errmsg) sqlite3_free(errmsg);
+        return false;
+    }
+
     const char *sql_index =
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_entry_owner_path "
         "ON file_entry(owner_id, path) WHERE is_deleted = 0;";
@@ -339,6 +361,32 @@ bool DbSqlite::list_files(int owner_id, string &paths, string &err) {
         return false;
     }
 
+    sqlite3_finalize(stmt);
+    return true;
+}
+
+bool DbSqlite::list_shared_files(int user_id, string &paths, string &err) {
+    paths.clear();
+    const char *sql =
+        "SELECT f.path, f.size_bytes, f.is_folder "
+        "FROM file_entry f "
+        "JOIN file_acl a ON a.file_id = f.id "
+        "WHERE a.grantee_id = ? AND f.is_deleted = 0 AND a.perm_read = 1;";
+
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) { err = sqlite3_errmsg(db_); return false; }
+    sqlite3_bind_int(stmt, 1, user_id);
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const char *p = (const char*)sqlite3_column_text(stmt, 0);
+        uint64_t size = sqlite3_column_int64(stmt, 1);
+        int is_folder = sqlite3_column_int(stmt, 2);
+        if (p) {
+            paths += string(p) + "|" + to_string(size) + "|" + to_string(is_folder) + "\n";
+        }
+    }
+    if (rc != SQLITE_DONE) { err = sqlite3_errmsg(db_); sqlite3_finalize(stmt); return false; }
     sqlite3_finalize(stmt);
     return true;
 }

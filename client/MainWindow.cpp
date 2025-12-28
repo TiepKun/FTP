@@ -12,6 +12,7 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
       btn_load_("Load"),
       btn_save_("Save"),
       btn_upload_("Upload"),
+      btn_refresh_("Refresh"),
       btn_download_("Download"),
       btn_pause_up_("Pause Up"),
       btn_resume_up_("Resume Up"),
@@ -37,6 +38,7 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     hbox->pack_start(btn_load_, Gtk::PACK_SHRINK);
     hbox->pack_start(btn_save_, Gtk::PACK_SHRINK);
     hbox->pack_start(btn_upload_, Gtk::PACK_SHRINK);
+    hbox->pack_start(btn_refresh_, Gtk::PACK_SHRINK);
     hbox->pack_start(btn_download_, Gtk::PACK_SHRINK);
     hbox->pack_start(btn_unzip_, Gtk::PACK_SHRINK);
     vbox_.pack_start(*hbox, Gtk::PACK_SHRINK);
@@ -114,6 +116,8 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
         sigc::mem_fun(*this, &MainWindow::on_btn_upload_clicked));
     btn_download_.signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_download_clicked));
+    btn_refresh_.signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_refresh_clicked));
     btn_pause_up_.signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_pause_upload_clicked));
     btn_resume_up_.signal_clicked().connect(
@@ -138,6 +142,10 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
         sigc::mem_fun(*this, &MainWindow::on_btn_restore_clicked));
     btn_list_deleted->signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_list_deleted_clicked));
+    Gtk::Button *btn_share = Gtk::manage(new Gtk::Button("Share"));
+    hbox3->pack_start(*btn_share, Gtk::PACK_SHRINK);
+    btn_share->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_share_clicked));
 
     show_all_children();
     refresh_file_list();     // load file list automatically
@@ -167,7 +175,7 @@ void MainWindow::on_btn_save_clicked() {
     }
 
     lbl_status_.set_text("Saved " + path);
-    refresh_file_list();
+    refresh_file_list();  // Add this line
 }
 
 void MainWindow::on_btn_upload_clicked() {
@@ -206,6 +214,7 @@ void MainWindow::on_btn_upload_clicked() {
         }
         lbl_status_.set_text("Folder uploaded: " + base_name);
         refresh_file_list();
+        expand_and_select(base_name);
         return;
     }
 
@@ -224,6 +233,7 @@ void MainWindow::on_btn_upload_clicked() {
         }
         lbl_status_.set_text("Folder uploaded: " + base_name);
         refresh_file_list();
+        expand_and_select(base_name);
         return;
     }
 
@@ -236,7 +246,8 @@ void MainWindow::on_btn_upload_clicked() {
     }
 
     lbl_status_.set_text("Uploaded " + remote_path + " successfully");
-    refresh_file_list();
+    refresh_file_list();  // Already exists - ensure it's here
+    expand_and_select(remote_path);
 }
 
 void MainWindow::on_btn_download_clicked() {
@@ -493,30 +504,50 @@ void MainWindow::refresh_file_list() {
     }
 
     file_list_store_->clear();
+    latest_entries_.clear();
 
     string current;
     for (char c : paths) {
         if (c == '\n') {
             if (!current.empty()) {
-                // Tách name|size|is_folder
+                // Parse: path|size_bytes|is_folder
                 size_t p1 = current.find('|');
                 size_t p2 = current.find('|', p1 + 1);
-                string path = current.substr(0, p1);
-                string size = current.substr(p1 + 1, p2 - p1 - 1);
-                bool is_folder = false;
-                if (p2 != string::npos) {
-                    string flag = current.substr(p2 + 1);
-                    is_folder = (flag == "1");
+                
+                if (p1 != string::npos && p2 != string::npos) {
+                    string path = current.substr(0, p1);
+                    string size_str = current.substr(p1 + 1, p2 - p1 - 1);
+                    string folder_flag = current.substr(p2 + 1);
+                    bool is_folder = (folder_flag == "1");
+                    
+                    latest_entries_.push_back({path, is_folder});
+                    add_path_to_tree(path, size_str, is_folder);
                 }
-                add_path_to_tree(path, size, is_folder);
                 current.clear();
             }
         } else {
             current += c;
         }
     }
+    // Handle last line if no trailing newline
+    if (!current.empty()) {
+        size_t p1 = current.find('|');
+        size_t p2 = current.find('|', p1 + 1);
+        if (p1 != string::npos && p2 != string::npos) {
+            string path = current.substr(0, p1);
+            string size_str = current.substr(p1 + 1, p2 - p1 - 1);
+            string folder_flag = current.substr(p2 + 1);
+            bool is_folder = (folder_flag == "1");
+            latest_entries_.push_back({path, is_folder});
+            add_path_to_tree(path, size_str, is_folder);
+        }
+    }
 
     lbl_status_.set_text("Loaded file list");
+}
+
+void MainWindow::on_btn_refresh_clicked() {
+    refresh_file_list();
 }
 
 void MainWindow::on_file_selected() {
@@ -572,11 +603,42 @@ std::vector<std::string> MainWindow::split_path(const std::string &path) {
     return parts;
 }
 
+Gtk::TreeModel::iterator MainWindow::find_iter_by_path(const std::string &path, const Gtk::TreeModel::Children &children) {
+    for (auto it = children.begin(); it != children.end(); ++it) {
+        Glib::ustring fp = (*it)[columns_.full_path];
+        if (fp == path) return it;
+        auto child = find_iter_by_path(path, (*it).children());
+        if (child) return child;
+    }
+    return Gtk::TreeModel::iterator();
+}
+
+void MainWindow::expand_and_select(const std::string &path) {
+    auto it = find_iter_by_path(path, file_list_store_->children());
+    if (!it) return;
+    Gtk::TreeModel::Path tree_path = file_list_store_->get_path(it);
+    file_list_view_.expand_to_path(tree_path);
+    file_list_view_.get_selection()->select(tree_path);
+    file_list_view_.scroll_to_row(tree_path);
+}
+
 void MainWindow::add_path_to_tree(const std::string &path, const std::string &size_str, bool is_folder) {
-    // size_str is bytes
-    double kb = atof(size_str.c_str()) / 1024.0;
+    
+    // Convert bytes to KB
+    double size_bytes = 0;
+    try {
+        size_bytes = std::stoll(size_str);
+    } catch (...) {
+        size_bytes = 0;
+    }
+    double kb = size_bytes / 1024.0;
+    
     char buf[32];
-    snprintf(buf, sizeof(buf), "%.2f KB", kb);
+    if (is_folder) {
+        snprintf(buf, sizeof(buf), "-");  // No size for folders
+    } else {
+        snprintf(buf, sizeof(buf), "%.2f KB", kb);
+    }
 
     std::vector<std::string> parts = split_path(path);
     if (parts.empty()) return;
@@ -604,7 +666,7 @@ void MainWindow::add_path_to_tree(const std::string &path, const std::string &si
             row[columns_.name] = parts[i];
             row[columns_.full_path] = accumulated;
             row[columns_.is_folder] = (i + 1 < parts.size()) ? true : is_folder;
-            // Only set size on leaf
+            // Only set size on leaf node
             if (i + 1 == parts.size() && !is_folder) {
                 row[columns_.size] = buf;
             } else {
@@ -612,7 +674,7 @@ void MainWindow::add_path_to_tree(const std::string &path, const std::string &si
             }
             found = row;
         } else {
-            // If this is leaf and size provided, update size
+            // Update size if this is leaf
             if (i + 1 == parts.size() && !is_folder) {
                 (*found)[columns_.size] = buf;
             }
@@ -685,4 +747,76 @@ bool MainWindow::choose_folder_dialog(std::string &out_path) {
         while (!out_path.empty() && out_path.back() == '/') out_path.pop_back();
     }
     return true;
+}
+
+void MainWindow::on_btn_share_clicked() {
+    // Build dialog
+    Gtk::Dialog dlg("Share", *this, true);
+    dlg.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
+    dlg.add_button("_Send", Gtk::RESPONSE_OK);
+
+    Gtk::Grid grid;
+    grid.set_row_spacing(6);
+    grid.set_column_spacing(6);
+
+    Gtk::Label lbl_to("To:");
+    Gtk::Entry entry_to;
+    Gtk::Label lbl_from("From:");
+    Gtk::Entry entry_from;
+    entry_from.set_text(username_);
+    entry_from.set_editable(false);
+    Gtk::Label lbl_desc("Description:");
+    Gtk::Entry entry_desc;
+    Gtk::Label lbl_path("Folder/File:");
+    Gtk::ComboBoxText combo_path;
+    combo_path.append(""); // require selection
+    for (auto &e : latest_entries_) {
+        combo_path.append(e.path);
+    }
+
+    Gtk::Label lbl_access("General Access:");
+    Gtk::ComboBoxText combo_access;
+    combo_access.append("View");
+    combo_access.append("Download");
+    combo_access.append("Editor");
+    combo_access.set_active(0);
+
+    grid.attach(lbl_to, 0, 0, 1, 1);
+    grid.attach(entry_to, 1, 0, 2, 1);
+    grid.attach(lbl_from, 0, 1, 1, 1);
+    grid.attach(entry_from, 1, 1, 2, 1);
+    grid.attach(lbl_desc, 0, 2, 1, 1);
+    grid.attach(entry_desc, 1, 2, 2, 1);
+    grid.attach(lbl_path, 0, 3, 1, 1);
+    grid.attach(combo_path, 1, 3, 2, 1);
+    grid.attach(lbl_access, 0, 4, 1, 1);
+    grid.attach(combo_access, 1, 4, 2, 1);
+
+    dlg.get_content_area()->pack_start(grid);
+    dlg.show_all_children();
+
+    if (dlg.run() != Gtk::RESPONSE_OK) {
+        lbl_status_.set_text("Share canceled");
+        return;
+    }
+
+    std::string to_user = entry_to.get_text();
+    std::string sel_path = combo_path.get_active_text();
+    if (to_user.empty() || sel_path.empty()) {
+        lbl_status_.set_text("To and Folder/File are required");
+        return;
+    }
+
+    std::string access = combo_access.get_active_text();
+    bool can_view = true;
+    bool can_download = (access == "Download" || access == "Editor");
+    bool can_edit = (access == "Editor");
+
+    std::string err;
+    if (!client_.set_permission(sel_path, to_user, can_view, can_download, can_edit, err)) {
+        lbl_status_.set_text("Share failed: " + err);
+        return;
+    }
+
+    lbl_status_.set_text("Shared " + sel_path + " with " + to_user + " (" + access + ")");
 }

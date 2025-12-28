@@ -38,6 +38,23 @@ bool is_txt_file(const string &path) {
 }
 } 
 
+uint64_t ClientSession::compute_disk_usage(const string &base_dir) {
+    namespace fs = std::filesystem;
+    uint64_t total = 0;
+    std::error_code ec;
+    if (!fs::exists(base_dir)) return 0;
+    for (auto &entry : fs::recursive_directory_iterator(base_dir, fs::directory_options::skip_permission_denied, ec)) {
+        if (ec) break;
+        auto rel = fs::relative(entry.path(), base_dir, ec);
+        if (ec) continue;
+        if (!rel.empty() && rel.begin()->string() == ".trash" ) continue;
+        if (entry.is_regular_file()) {
+            total += (uint64_t)entry.file_size();
+        }
+    }
+    return total;
+}
+
 ClientSession::ClientSession(int sockfd, FileServer &server)
     : sockfd_(sockfd),
       server_(server) {}
@@ -227,26 +244,39 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
 
     uint64_t size;
     try {
-        size = stoull(tokens[1]);      // <== SIZE nằm trước
+        size = stoull(tokens[1]);
     } catch (...) {
         send_line(sockfd_, "ERR 400 Invalid size");
         return true;
     }
 
-    // GHÉP phần còn lại làm path (kể cả có space)
     string rel_path;
     for (size_t i = 2; i < tokens.size(); i++) {
         if (i > 2) rel_path += " ";
         rel_path += tokens[i];
     }
 
-
     string base_dir  = server_.root_dir() + "/" + username_;
     string full_path = base_dir + "/" + rel_path;
     uint64_t old_size = file_size(full_path);
-    uint64_t additional = size > old_size ? size - old_size : 0;
 
-    if (!server_.quota_mgr().can_allocate(username_, additional)) {
+    // Refresh quota from DB and recompute disk usage for accurate check
+    uint64_t quota_limit = 0;
+    UserRecord quota_user;
+    string err_quota;
+    if (server_.db().get_user_by_username(username_, quota_user, err_quota)) {
+        quota_limit = quota_user.quota_bytes;
+        server_.quota_mgr().set_limit(username_, quota_limit);
+        uint64_t disk_used = compute_disk_usage(base_dir);
+        server_.quota_mgr().adjust_usage(username_, (int64_t)disk_used - (int64_t)server_.quota_mgr().used(username_));
+        server_.db().update_used_bytes(user_id_, disk_used, err_quota);
+    }
+
+    uint64_t current_used = server_.quota_mgr().used(username_);
+    uint64_t additional = size > old_size ? size - old_size : 0;
+    
+    // Check quota BEFORE accepting upload
+    if (quota_limit > 0 && current_used + additional > quota_limit) {
         send_line(sockfd_, "ERR 403 Quota exceeded");
         return true;
     }
@@ -277,7 +307,6 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
     while (remaining > 0) {
         size_t chunk = remaining > BUF_SIZE ? BUF_SIZE : (size_t)remaining;
         if (!recv_exact(sockfd_, buf.data(), chunk)) {
-            // Connection lost - save state for resume
             uint64_t current_offset = size - remaining;
             if (session_id < 0) {
                 server_.db().create_transfer_session(user_id_, rel_path, "UPLOAD", size, current_offset, session_id, err);
@@ -302,14 +331,11 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
 
     uint64_t used = server_.quota_mgr().used(username_);
     server_.db().update_used_bytes(user_id_, used, err);
-    // Lưu metadata file (kích thước, đường dẫn) để thống kê.
     server_.db().upsert_file_entry(user_id_, rel_path, size, false, err);
 
-    // Clean up any transfer session on successful completion
     if (session_id >= 0) {
         server_.db().delete_transfer_session(session_id, err);
     } else {
-        // Check if there was a previous session
         int old_session_id;
         uint64_t dummy_offset, dummy_size;
         if (server_.db().get_transfer_session(user_id_, rel_path, "UPLOAD", old_session_id, dummy_offset, dummy_size, err)) {
@@ -450,7 +476,6 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         return true;
     }
     
-    // Check permission (edit) - but allow if file doesn't exist yet (new file)
     string err;
     int owner_id = user_id_;
     int file_id = 0;
@@ -460,17 +485,15 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
     bool is_deleted = false;
 
     bool file_exists = server_.db().get_file_entry(user_id_, rel_path, file_id, meta_size, is_folder, is_deleted, err);
-    if (file_exists) {
+    if (file_exists && !is_deleted) {
         if (!check_file_permission(rel_path, false, false, true, owner_id, owner_user, file_id, meta_size, is_folder)) {
             send_line(sockfd_, "ERR 403 Permission denied (edit required)");
             return true;
         }
     } else {
-        // If file is shared, also allow edit if ACL permits
         if (check_file_permission(rel_path, false, false, true, owner_id, owner_user, file_id, meta_size, is_folder)) {
             // owner_id/owner_user set by helper
         } else {
-            // New file under current user
             owner_id = user_id_;
             owner_user = username_;
         }
@@ -480,22 +503,43 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
     string base_dir  = server_.root_dir() + "/" + owner_user;
     string full_path = base_dir + "/" + rel_path;
     uint64_t old_size = file_size(full_path);
-    uint64_t additional = size > old_size ? size - old_size : 0;
 
-    if (!server_.quota_mgr().can_allocate(owner_user, additional)) {
+    // Refresh quota state from DB
+    uint64_t quota_limit = 0;
+    UserRecord quota_user;
+    string err_user;
+    if (server_.db().get_user_by_username(owner_user, quota_user, err_user)) {
+        quota_limit = quota_user.quota_bytes;
+        server_.quota_mgr().set_limit(owner_user, quota_limit);
+        uint64_t disk_used = compute_disk_usage(base_dir);
+        server_.quota_mgr().adjust_usage(owner_user, (int64_t)disk_used - (int64_t)server_.quota_mgr().used(owner_user));
+        server_.db().update_used_bytes(owner_id, disk_used, err_user);
+    }
+
+    uint64_t current_used = server_.quota_mgr().used(owner_user);
+    uint64_t additional = size > old_size ? size - old_size : 0;
+    
+    // Check quota BEFORE accepting text
+    if (quota_limit > 0 && current_used + additional > quota_limit) {
         send_line(sockfd_, "ERR 403 Quota exceeded");
         return true;
     }
+
     string tmp_path  = full_path + ".tmp";
     ::mkdir(server_.root_dir().c_str(), 0755);
     ::mkdir(base_dir.c_str(), 0755);
+    size_t parent_pos = full_path.find_last_of('/');
+    if (parent_pos != string::npos && parent_pos > 0) {
+        utils::ensure_dir(full_path.substr(0, parent_pos));
+    }
+
     ofstream ofs(tmp_path);
     if (!ofs) {
         send_line(sockfd_, "ERR 500 Cannot open temp file");
         return true;
     }
     send_line(sockfd_, "OK 100 Ready to receive");
-    const size_t BUF_SIZE = 64 * 1024; //64KB
+    const size_t BUF_SIZE = 64 * 1024;
     vector<char> buf(BUF_SIZE);
     uint64_t remaining = size;
     while (remaining > 0) {
@@ -513,10 +557,13 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         server_.add_bytes_in(chunk);
     }
     ofs.close();
+    
     ::rename(tmp_path.c_str(), full_path.c_str());
-    int64_t delta = static_cast<int64_t>(size) - static_cast<int64_t>(old_size);
-    int64_t new_used = server_.quota_mgr().adjust_usage(owner_user, delta);
-    server_.db().update_used_bytes(owner_id, static_cast<uint64_t>(new_used), err);
+    int64_t delta = (int64_t)size - (int64_t)old_size;
+    server_.quota_mgr().adjust_usage(owner_user, delta);
+    
+    uint64_t used = server_.quota_mgr().used(owner_user);
+    server_.db().update_used_bytes(owner_id, used, err);
     server_.db().upsert_file_entry(owner_id, rel_path, size, false, err);
     server_.logger().log(username_, "PUT_TEXT " + rel_path + " size=" + to_string(size));
     send_line(sockfd_, "OK 200 Text file updated");
@@ -544,12 +591,54 @@ bool ClientSession::cmd_list_db(const vector<string> &tokens) {
         return true;
     }
 
-    // Trả số dòng + nội dung
+    string shared;
+    server_.db().list_shared_files(user_id_, shared, err);
+    if (!shared.empty()) paths += shared;
+
+    // Format: each line is "path|size|is_folder"
+    // Parse and reformat if needed
+    stringstream ss_in(paths);
+    stringstream ss_out;
+    string line;
+    
+    while (getline(ss_in, line)) {
+        if (line.empty()) continue;
+        
+        // line format could be "path|size|folder" already from DB
+        // or just "path" - need to query DB for details
+        size_t pipe1 = line.find('|');
+        string path;
+        uint64_t size_bytes = 0;
+        bool is_folder = false;
+        
+        if (pipe1 != string::npos) {
+            // Already has format
+            path = line.substr(0, pipe1);
+            size_t pipe2 = line.find('|', pipe1 + 1);
+            if (pipe2 != string::npos) {
+                size_bytes = stoull(line.substr(pipe1 + 1, pipe2 - pipe1 - 1));
+                is_folder = line.substr(pipe2 + 1) == "1";
+            }
+            ss_out << path << "|" << size_bytes << "|" << (is_folder ? "1" : "0") << "\n";
+        } else {
+            // Just path, query DB
+            path = line;
+            int file_id;
+            uint64_t meta_size;
+            bool is_deleted;
+            if (server_.db().get_file_entry(user_id_, path, file_id, meta_size, is_folder, is_deleted, err)) {
+                size_bytes = meta_size;
+            }
+            ss_out << path << "|" << size_bytes << "|" << (is_folder ? "1" : "0") << "\n";
+        }
+    }
+    
+    string formatted = ss_out.str();
     int count = 0;
-    for (char c : paths) if (c == '\n') count++;
+    for (char c : formatted) if (c == '\n') count++;
 
     send_line(sockfd_, "OK 200 " + to_string(count));
-    send_all(sockfd_, paths.data(), paths.size());  // gửi raw
+    send_all(sockfd_, formatted.data(), formatted.size());
     return true;
 }
 
@@ -660,23 +749,27 @@ bool ClientSession::cmd_delete(const vector<string> &tokens) {
     
     string rel_path = tokens[1];
     
-    // Check permission (owner can always delete)
-    int file_id;
-    string err;
-    if (!server_.db().get_file_id_by_path(user_id_, rel_path, file_id, err)) {
-        send_line(sockfd_, "ERR 404 File not found");
-        return true;
-    }
-    
+    // Paths
     string base_dir = server_.root_dir() + "/" + username_;
     string full_path = base_dir + "/" + rel_path;
     
-    // Mark as deleted in DB
-    if (!server_.db().delete_file_entry(user_id_, rel_path, err)) {
-        send_line(sockfd_, "ERR 500 DB error: " + err);
+    // Ensure it exists on disk
+    struct stat st{};
+    if (::stat(full_path.c_str(), &st) != 0) {
+        send_line(sockfd_, "ERR 404 File not found");
         return true;
     }
+
+    // Ensure DB entry exists so restore/list work
+    string err;
+    int file_id;
+    if (!server_.db().get_file_id_by_path(user_id_, rel_path, file_id, err)) {
+        bool is_folder = S_ISDIR(st.st_mode);
+        uint64_t sz = is_folder ? 0 : (uint64_t)st.st_size;
+        server_.db().upsert_file_entry(user_id_, rel_path, sz, is_folder, err);
+    }
     
+    // Move to trash (folder or file)
     string trash_dir = base_dir + "/.trash";
     utils::ensure_dir(trash_dir);
     string trash_path = trash_dir + "/" + rel_path;
@@ -685,34 +778,58 @@ bool ClientSession::cmd_delete(const vector<string> &tokens) {
         utils::ensure_dir(trash_path.substr(0, parent_pos));
     }
 
-    // Move file/folder into trash for potential restore.
-    // Handle existing trash target by removing it, and fallback to copy+remove if rename fails.
     namespace fs = std::filesystem;
     std::error_code ec;
     fs::rename(full_path, trash_path, ec);
     if (ec) {
-        // If target exists, remove then retry
         fs::remove_all(trash_path, ec);
         ec.clear();
         fs::rename(full_path, trash_path, ec);
     }
     if (ec) {
-        // Fallback copy then remove
         fs::copy(full_path, trash_path, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
-        if (ec) {
-            send_line(sockfd_, "ERR 500 Move to trash failed");
-            return true;
-        }
-        fs::remove_all(full_path, ec);
+        if (!ec) fs::remove_all(full_path, ec);
     }
+    if (ec) {
+        send_line(sockfd_, "ERR 500 Move to trash failed");
+        return true;
+    }
+    
+    // Update quota: subtract total size of subtree moved
+    uint64_t moved_bytes = compute_disk_usage(trash_path);
+    server_.quota_mgr().adjust_usage(username_, -(int64_t)moved_bytes);
+    uint64_t used = server_.quota_mgr().used(username_);
+    server_.db().update_used_bytes(user_id_, used, err);
 
-    // Update quota if it's a file (not folder)
-    struct stat st{};
-    if (::stat(trash_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
-        uint64_t size = (uint64_t)st.st_size;
-        server_.quota_mgr().adjust_usage(username_, -(int64_t)size);
-        uint64_t used = server_.quota_mgr().used(username_);
-        server_.db().update_used_bytes(user_id_, used, err);
+    // Mark DB entries (path and children) as deleted
+    string paths;
+    if (server_.db().list_files(user_id_, paths, err)) {
+        string line;
+        for (char c : paths) {
+            if (c == '\n') {
+                if (!line.empty()) {
+                    size_t p = line.find('|');
+                    if (p != string::npos) {
+                        string pth = line.substr(0, p);
+                        if (pth == rel_path || (pth.size() > rel_path.size() + 1 && pth.rfind(rel_path + "/", 0) == 0)) {
+                            server_.db().delete_file_entry(user_id_, pth, err);
+                        }
+                    }
+                    line.clear();
+                }
+            } else {
+                line += c;
+            }
+        }
+        if (!line.empty()) {
+            size_t p = line.find('|');
+            if (p != string::npos) {
+                string pth = line.substr(0, p);
+                if (pth == rel_path || (pth.size() > rel_path.size() + 1 && pth.rfind(rel_path + "/", 0) == 0)) {
+                    server_.db().delete_file_entry(user_id_, pth, err);
+                }
+            }
+        }
     }
     
     server_.logger().log(username_, "DELETE " + rel_path);
@@ -771,10 +888,41 @@ bool ClientSession::cmd_copy(const vector<string> &tokens) {
     string src_full = base_dir + "/" + src_path;
     string dst_full = base_dir + "/" + dst_path;
     
-    // Check if source exists
     struct stat st{};
     if (::stat(src_full.c_str(), &st) != 0) {
         send_line(sockfd_, "ERR 404 Source not found");
+        return true;
+    }
+    
+    // Check quota BEFORE copying
+    uint64_t quota_limit = 0;
+    UserRecord quota_user;
+    string err_quota;
+    if (server_.db().get_user_by_username(username_, quota_user, err_quota)) {
+        quota_limit = quota_user.quota_bytes;
+        server_.quota_mgr().set_limit(username_, quota_limit);
+        uint64_t disk_used = compute_disk_usage(base_dir);
+        server_.quota_mgr().adjust_usage(username_, (int64_t)disk_used - (int64_t)server_.quota_mgr().used(username_));
+        server_.db().update_used_bytes(user_id_, disk_used, err_quota);
+    }
+    
+    uint64_t current_used = server_.quota_mgr().used(username_);
+    uint64_t total_copy_size = 0;
+    
+    // Calculate total size to copy
+    if (S_ISREG(st.st_mode)) {
+        total_copy_size = (uint64_t)st.st_size;
+    } else if (S_ISDIR(st.st_mode)) {
+        namespace fs = std::filesystem;
+        for (auto &entry : fs::recursive_directory_iterator(src_full)) {
+            if (entry.is_regular_file()) {
+                total_copy_size += (uint64_t)entry.file_size();
+            }
+        }
+    }
+    
+    if (quota_limit > 0 && current_used + total_copy_size > quota_limit) {
+        send_line(sockfd_, "ERR 403 Quota exceeded");
         return true;
     }
     
@@ -789,27 +937,18 @@ bool ClientSession::cmd_copy(const vector<string> &tokens) {
         dst << src.rdbuf();
         
         uint64_t size = (uint64_t)st.st_size;
-        uint64_t additional = size;
-        if (!server_.quota_mgr().can_allocate(username_, additional)) {
-            ::unlink(dst_full.c_str());
-            send_line(sockfd_, "ERR 403 Quota exceeded");
-            return true;
-        }
-        
         string err;
         server_.db().copy_file_entry(user_id_, src_path, dst_path, err);
         server_.quota_mgr().adjust_usage(username_, (int64_t)size);
         uint64_t used = server_.quota_mgr().used(username_);
         server_.db().update_used_bytes(user_id_, used, err);
     } else if (S_ISDIR(st.st_mode)) {
-        // Copy directory - create destination and copy recursively
         namespace fs = std::filesystem;
         try {
             if (!utils::ensure_dir(dst_full)) {
                 send_line(sockfd_, "ERR 500 Cannot create destination directory");
                 return true;
             }
-            // Simple recursive copy
             DIR *dir = opendir(src_full.c_str());
             if (dir) {
                 struct dirent *entry;
