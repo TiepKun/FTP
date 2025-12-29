@@ -1,91 +1,36 @@
-2025-12-30 01:31:15 [tiep] REGISTER success
-2025-12-30 01:31:16 [tiep] Login success
-2025-12-30 01:31:22 [tiep] UPLOAD TKB20252-FULL.xlsx size=834293
-2025-12-30 01:33:20 [tiep] Login success
-2025-12-30 01:33:28 [tiep] CREATE_FOLDER 123
-2025-12-30 01:33:34 [tiep] RENAME TKB20252-FULL.xlsx -> 123/TKB20252-FULL.xlsx
-2025-12-30 01:33:42 [tiep] DELETE 123/TKB20252-FULL.xlsx
-2025-12-30 01:33:43 [tiep] RESTORE 123
-2025-12-30 01:33:45 [tiep] DELETE 123
-2025-12-30 01:33:46 [tiep] LIST_DELETED
-2025-12-30 01:34:38 [tiep] REGISTER success
-2025-12-30 01:34:38 [tiep] Login success
-2025-12-30 01:34:43 [tiep] UPLOAD TKB20252-FULL.xlsx size=834293
-2025-12-30 01:35:12 [tiep] LIST_DELETED
-2025-12-30 01:35:18 [tiep] RENAME TKB20252-FULL.xlsx -> TKB20252-FULL.xlsx
-2025-12-30 01:35:19 [tiep] RENAME TKB20252-FULL.xlsx -> TKB20252-FULL.xlsx
-2025-12-30 01:35:26 [tiep] RENAME TKB20252-FULL.xlsx -> TKB20252-FULLL.xlsx
-2025-12-30 01:39:35 [tiep] DELETE TKB20252-FULLL.xlsx
-2025-12-30 01:39:36 [tiep] RESTORE TKB20252-FULLL.xlsx
-2025-12-30 01:39:37 [tiep] LIST_DELETED
-2025-12-30 01:41:07 [tiep] Login success
-2025-12-30 01:41:15 [tiep] RENAME TKB20252-FULLL.xlsx -> TKB20252-FULLL1.xlsx
-2025-12-30 01:43:39 [tiep1] REGISTER success
-2025-12-30 01:43:39 [tiep1] Login success
-2025-12-30 01:43:54 [tiep] SET_PERMISSION TKB20252-FULLL1.xlsx for tiep1
-2025-12-30 01:49:34 [tiep] UPLOAD TerminalDeepSomaticWES.txt size=131810
-2025-12-30 01:49:38 [tiep] GET_TEXT TerminalDeepSomaticWES.txt size=131810
-2025-12-30 01:49:51 [tiep] PUT_TEXT TerminalDeepSomaticWES.txt size=131810
-2025-12-30 02:07:45 [tiep] Login success
-2025-12-30 02:08:16 [tiep1] Login success
-2025-12-30 02:08:42 [tiep] SET_PERMISSION TerminalDeepSomaticWES.txt for tiep1
-2025-12-30 02:09:06 [tiep1] Login success
-2025-12-30 02:09:12 [tiep1] GET_TEXT TerminalDeepSomaticWES.txt size=131810
-2025-12-30 02:09:53 [tiep] UPLOAD user_account.txt size=287
-2025-12-30 02:10:07 [tiep] SET_PERMISSION user_account.txt for tiep1
-2025-12-30 02:10:20 [tiep1] Login success
-2025-12-30 02:10:31 [tiep1] GET_TEXT TerminalDeepSomaticWES.txt size=131810
-2025-12-30 02:12:37 [tiep] UPLOAD ~$n xin doi GVHD.docx size=162
-2025-12-30 02:13:21 [tiep] Login success
-2025-12-30 02:13:31 [tiep1] Login success
-2025-12-30 02:14:30 [tiep] Login success
-2025-12-30 02:14:40 [tiep1] Login success
-2025-12-30 02:15:11 [tiep1] Login success
-2025-12-30 02:16:17 [tiep] UPLOAD IT3070-Five.pdf size=3035423
-2025-12-30 02:16:29 [tiep] SET_PERMISSION IT3070-Five.pdf for tiep1
-2025-12-30 02:16:45 [tiep] CREATE_FOLDER SSH1131
-2025-12-30 02:16:45 [tiep] UPLOAD SSH1131/Câu 6 CNXH - Nhóm 19.pdf size=194569
-2025-12-30 02:16:45 [tiep] UPLOAD SSH1131/z7149315963911_5201f3a9b69c2d45383b3089147e3dce.jpg size=52468
-2025-12-30 02:16:45 [tiep] UPLOAD SSH1131/CNXH nhóm 19.docx size=304470
-2025-12-30 02:16:45 [tiep] UPLOAD SSH1131/Dân chủ XHCN và Nhà nước XHCN.pdf size=32259015
-2025-12-30 02:16:45 [tiep] UPLOAD SSH1131/Dân chủ XHCN và Nhà nước XHCN (1).pdf size=40647981
-2025-12-30 02:19:33 [tiep] Login success
-2025-12-30 02:20:07 [tiep1] Login success
-2025-12-30 02:24:28 [tiep] Login success
-2025-12-30 02:24:38 [tiep1] Login success
-2025-12-30 02:24:55 [tiep] SET_PERMISSION SSH1131/Câu 6 CNXH - Nhóm 19.pdf for tiep1
-2025-12-30 02:25:24 [tiep] SET_PERMISSION SSH1131 for tiep1
-2025-12-30 02:27:58 [tiep1] UPLOAD time-table (7).xlsx size=19783
-2025-12-30 02:31:10 [tiep] Login success
-2025-12-30 02:31:20 [tiep1] Login success
-2025-12-30 02:31:40 [tiep] SET_PERMISSION SSH1131/CNXH nhóm 19.docx for tiep1
-2025-12-30 02:33:28 [tiep1] GET_TEXT user_account.txt size=287
-2025-12-30 02:33:33 [tiep1] PUT_TEXT user_account.txt size=287
-2025-12-30 02:33:38 [tiep1] PUT_TEXT user_account.txt size=287
-2025-12-30 02:33:53 [tiep1] PUT_TEXT user_account.txt size=287
-2025-12-30 02:35:16 [tiep] Login success
-2025-12-30 02:35:25 [tiep1] Login success
-2025-12-30 02:35:52 [tiep] UPLOAD 20225767_NguyenKhacTiep_Baitapcuoicung.zip size=135994
-2025-12-30 02:35:55 [tiep] UNZIP 20225767_NguyenKhacTiep_Baitapcuoicung.zip extracted 194176 bytes
-2025-12-30 02:36:18 [tiep] SET_PERMISSION 20225767_NguyenKhacTiep_Baitapcuoicung/__MACOSX/20225767_NguyenKhacTiep_Baitapcuoicung/._auth.log for tiep1
-2025-12-30 02:36:40 [tiep] SET_PERMISSION 20225767_NguyenKhacTiep_Baitapcuoicung/20225767_NguyenKhacTiep_Baitapcuoicung for tiep1
-2025-12-30 02:39:48 [tiep1] SET_PERMISSION time-table (7).xlsx for tiep
-2025-12-30 02:45:29 [tiep] Login success
-2025-12-30 02:45:50 [tiep1] Login success
-2025-12-30 02:46:01 [tiep1] SET_PERMISSION time-table (7).xlsx for tiep
-2025-12-30 02:46:35 [tiep] SET_PERMISSION user_account.txt for tiep1
-2025-12-30 02:46:41 [tiep1] GET_TEXT user_account.txt size=287
-2025-12-30 02:50:47 [tiep] SET_PERMISSION user_account.txt for tiep1
-2025-12-30 02:52:58 [tiep] Login success
-2025-12-30 02:53:51 [tiep1] Login success
-2025-12-30 02:54:05 [tiep] SET_PERMISSION user_account.txt for tiep1
-2025-12-30 02:54:33 [tiep] SET_PERMISSION user_account.txt for tiep1
-2025-12-30 02:55:47 [tiep2] REGISTER success
-2025-12-30 02:55:47 [tiep2] Login success
-2025-12-30 02:56:03 [tiep] SET_PERMISSION user_account.txt for tiep2
-2025-12-30 02:56:22 [tiep] SET_PERMISSION user_account.txt for tiep2
-2025-12-30 02:56:28 [tiep2] GET_TEXT user_account.txt size=287
-2025-12-30 02:58:16 [tiep] SET_PERMISSION 20225767_NguyenKhacTiep_Baitapcuoicung/20225767_NguyenKhacTiep_Baitapcuoicung for tiep1
-2025-12-30 03:02:32 [tiep] Login success
-2025-12-30 03:02:48 [tiep1] Login success
-2025-12-30 03:03:00 [tiep] SET_PERMISSION 20225767_NguyenKhacTiep_Baitapcuoicung/20225767_NguyenKhacTiep_Baitapcuoicung for tiep1
+2025-12-30 04:35:03 [tiep] Login failed (user not found)
+2025-12-30 04:35:04 [tiep] REGISTER success
+2025-12-30 04:35:05 [tiep] Login success
+2025-12-30 04:35:29 [tiep] UPLOAD user_account.txt size=287
+2025-12-30 04:35:34 [tiep] GET_TEXT user_account.txt size=287
+2025-12-30 04:35:56 [tiep] CREATE_FOLDER tiepfolder
+2025-12-30 04:41:35 [tiep] RENAME tiepfolder -> tiepfolder
+2025-12-30 04:41:41 [tiep] RENAME user_account.txt -> user_account1.txt
+2025-12-30 04:43:58 [tiep] DELETE tiepfolder
+2025-12-30 04:44:09 [tiep] DELETE user_account1.txt
+2025-12-30 04:44:13 [tiep] RESTORE user_account1.txt
+2025-12-30 04:45:42 [tiep] CREATE_FOLDER tiep1
+2025-12-30 04:47:52 [tiep] DELETE user_account1.txt
+2025-12-30 04:47:54 [tiep] RESTORE user_account1.txt
+2025-12-30 04:47:55 [tiep] LIST_DELETED
+2025-12-30 04:48:15 [tiep] DELETE user_account1.txt
+2025-12-30 04:48:16 [tiep] LIST_DELETED
+2025-12-30 04:48:18 [tiep] RESTORE user_account1.txt
+2025-12-30 04:48:18 [tiep] LIST_DELETED
+2025-12-30 04:48:21 [tiep] LIST_DELETED
+2025-12-30 04:51:18 [tiep] GET_TEXT user_account1.txt size=287
+2025-12-30 04:51:23 [tiep] PUT_TEXT user_account1.txt size=294
+2025-12-30 04:51:43 [tiep] PUT_TEXT user_account1.txt size=288
+2025-12-30 05:03:11 [tiep1] REGISTER success
+2025-12-30 05:03:11 [tiep1] Login success
+2025-12-30 05:03:52 [tiep] SET_PERMISSION user_account1.txt for tiep1
+2025-12-30 05:04:36 [tiep] SET_PERMISSION tiep1 for tiep1
+2025-12-30 05:18:13 [tiep2] REGISTER success
+2025-12-30 05:18:14 [tiep2] Login success
+2025-12-30 05:18:27 [tiep] SET_PERMISSION user_account1.txt for tiep1
+2025-12-30 05:18:35 [tiep1] GET_TEXT user_account1.txt size=288
+2025-12-30 05:18:49 [tiep] SET_PERMISSION user_account1.txt for tiep2
+2025-12-30 05:18:55 [tiep2] GET_TEXT user_account1.txt size=288
+2025-12-30 05:19:16 [tiep2] PUT_TEXT user_account1.txt size=289
+2025-12-30 05:19:20 [tiep2] GET_TEXT user_account1.txt size=289
+2025-12-30 05:19:23 [tiep1] GET_TEXT user_account1.txt size=289
