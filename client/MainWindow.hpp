@@ -3,6 +3,7 @@
 #include <gtkmm.h>
 #include <string>
 #include "NetworkClient.hpp"
+#include <atomic>
 
 using namespace std;
 
@@ -86,4 +87,15 @@ protected:
                                  bool &ok_out);
     struct EntryMeta { std::string path; bool is_folder; };
     std::vector<EntryMeta> latest_entries_;
+
+    // ===== Upload progress =====
+    Gtk::ProgressBar progress_upload_;
+
+    std::atomic<uint64_t> upload_sent_{0};
+    uint64_t upload_total_{0};
+    std::atomic<bool> uploading_{false};
+
+    sigc::connection upload_timer_;
+
+    bool on_upload_progress_tick();
 };

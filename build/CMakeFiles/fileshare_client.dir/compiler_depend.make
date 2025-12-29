@@ -53,6 +53,7 @@ CMakeFiles/fileshare_client.dir/client/LoginWindow.cpp.o: /mnt/c/Users/TumRoyal/
   /usr/include/atkmm-1.6/atkmm/relation.h \
   /usr/include/c++/13/algorithm \
   /usr/include/c++/13/array \
+  /usr/include/c++/13/atomic \
   /usr/include/c++/13/backward/auto_ptr.h \
   /usr/include/c++/13/backward/binders.h \
   /usr/include/c++/13/bit \
@@ -1662,6 +1663,7 @@ CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o: /mnt/c/Users/TumRoyal/D
   /usr/include/atkmm-1.6/atkmm/relation.h \
   /usr/include/c++/13/algorithm \
   /usr/include/c++/13/array \
+  /usr/include/c++/13/atomic \
   /usr/include/c++/13/backward/auto_ptr.h \
   /usr/include/c++/13/backward/binders.h \
   /usr/include/c++/13/bit \
@@ -1741,6 +1743,7 @@ CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o: /mnt/c/Users/TumRoyal/D
   /usr/include/c++/13/bits/std_abs.h \
   /usr/include/c++/13/bits/std_function.h \
   /usr/include/c++/13/bits/std_mutex.h \
+  /usr/include/c++/13/bits/std_thread.h \
   /usr/include/c++/13/bits/stl_algo.h \
   /usr/include/c++/13/bits/stl_algobase.h \
   /usr/include/c++/13/bits/stl_bvector.h \
@@ -1769,6 +1772,7 @@ CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o: /mnt/c/Users/TumRoyal/D
   /usr/include/c++/13/bits/streambuf_iterator.h \
   /usr/include/c++/13/bits/string_view.tcc \
   /usr/include/c++/13/bits/stringfwd.h \
+  /usr/include/c++/13/bits/this_thread_sleep.h \
   /usr/include/c++/13/bits/uniform_int_dist.h \
   /usr/include/c++/13/bits/unique_lock.h \
   /usr/include/c++/13/bits/unique_ptr.h \
@@ -1836,6 +1840,7 @@ CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o: /mnt/c/Users/TumRoyal/D
   /usr/include/c++/13/string \
   /usr/include/c++/13/string_view \
   /usr/include/c++/13/system_error \
+  /usr/include/c++/13/thread \
   /usr/include/c++/13/tr1/bessel_function.tcc \
   /usr/include/c++/13/tr1/beta_function.tcc \
   /usr/include/c++/13/tr1/ell_integral.tcc \
@@ -3251,10 +3256,13 @@ CMakeFiles/fileshare_client.dir/client/NetworkClient.cpp.o: /mnt/c/Users/TumRoya
   /usr/include/asm-generic/posix_types.h \
   /usr/include/asm-generic/socket.h \
   /usr/include/asm-generic/sockios.h \
+  /usr/include/c++/13/atomic \
   /usr/include/c++/13/backward/binders.h \
   /usr/include/c++/13/bit \
   /usr/include/c++/13/bits/alloc_traits.h \
   /usr/include/c++/13/bits/allocator.h \
+  /usr/include/c++/13/bits/atomic_base.h \
+  /usr/include/c++/13/bits/atomic_lockfree_defines.h \
   /usr/include/c++/13/bits/basic_ios.h \
   /usr/include/c++/13/bits/basic_ios.tcc \
   /usr/include/c++/13/bits/basic_string.h \
@@ -3522,6 +3530,7 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
   /usr/include/atkmm-1.6/atkmm/relation.h \
   /usr/include/c++/13/algorithm \
   /usr/include/c++/13/array \
+  /usr/include/c++/13/atomic \
   /usr/include/c++/13/backward/auto_ptr.h \
   /usr/include/c++/13/backward/binders.h \
   /usr/include/c++/13/bit \
@@ -5101,11 +5110,15 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h:
 
+/usr/include/c++/13/thread:
+
 /usr/include/c++/13/locale:
 
 /usr/include/c++/13/fstream:
 
 /usr/include/c++/13/codecvt:
+
+/usr/include/c++/13/bits/this_thread_sleep.h:
 
 /usr/include/c++/13/bits/locale_facets_nonio.h:
 
@@ -5136,8 +5149,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 /usr/include/x86_64-linux-gnu/sys/single_threaded.h:
 
 /usr/include/x86_64-linux-gnu/sys/select.h:
-
-/usr/include/x86_64-linux-gnu/sys/cdefs.h:
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h:
 
@@ -5777,8 +5788,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/glib-2.0/glib/deprecated/grel.h:
 
-/usr/include/glib-2.0/gio/ginitable.h:
-
 /usr/include/linux/close_range.h:
 
 /usr/include/glib-2.0/gio/ginetaddress.h:
@@ -5975,10 +5984,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/giomm-2.4/giomm/icon.h:
 
-/usr/include/gtk-3.0/gtk/gtkimcontextsimple.h:
-
-/usr/include/giomm-2.4/giomm/filteroutputstream.h:
-
 /usr/include/giomm-2.4/giomm/filenamecompleter.h:
 
 /usr/include/glib-2.0/gio/ginetsocketaddress.h:
@@ -6113,10 +6118,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/c++/13/bits/node_handle.h:
 
-/usr/include/gtkmm-3.0/gtkmm/scale.h:
-
-/usr/include/glib-2.0/gio/gmemoryoutputstream.h:
-
 /usr/include/giomm-2.4/giomm/asyncresult.h:
 
 /usr/include/giomm-2.4/giomm/asyncinitable.h:
@@ -6197,9 +6198,9 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/gdk-pixbuf-2.0/gdk-pixbuf/gdk-pixbuf-loader.h:
 
-/usr/include/giomm-2.4/giomm/menulinkiter.h:
-
 /usr/include/atk-1.0/atk/atksocket.h:
+
+/usr/include/giomm-2.4/giomm/menulinkiter.h:
 
 /usr/include/gdk-pixbuf-2.0/gdk-pixbuf/gdk-pixbuf-enum-types.h:
 
@@ -6254,6 +6255,16 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 /usr/include/features.h:
 
 /usr/include/c++/13/string:
+
+/usr/include/gdkmm-3.0/gdkmm/cursor.h:
+
+/usr/include/features-time64.h:
+
+/usr/include/c++/13/bits/list.tcc:
+
+/usr/include/pangomm-1.4/pangomm/attributes.h:
+
+/usr/include/c++/13/type_traits:
 
 /usr/include/glib-2.0/gio/gactiongroup.h:
 
@@ -6381,16 +6392,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/glib-2.0/gio/gsimpleiostream.h:
 
-/usr/include/c++/13/bits/stl_function.h:
-
-/usr/include/gdk-pixbuf-2.0/gdk-pixbuf/gdk-pixbuf-autocleanups.h:
-
-/usr/include/atk-1.0/atk/atkstateset.h:
-
-/usr/include/c++/13/functional:
-
-/usr/include/c++/13/tr1/beta_function.tcc:
-
 /usr/include/gtk-3.0/gtk/gtkstackswitcher.h:
 
 /usr/include/c++/13/bits/requires_hosted.h:
@@ -6479,26 +6480,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/c++/13/bits/hashtable_policy.h:
 
-/usr/include/glibmm-2.4/glibmm/optionentry.h:
-
-/usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h:
-
-/usr/include/c++/13/clocale:
-
-/usr/include/giomm-2.4/giomm/simplepermission.h:
-
-/usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h:
-
-/usr/include/giomm-2.4/giomm/charsetconverter.h:
-
-/usr/include/freetype2/freetype/config/integer-types.h:
-
-/usr/include/c++/13/tr1/poly_laguerre.tcc:
-
-/usr/include/c++/13/tr1/special_function_util.h:
-
-/usr/include/gtk-3.0/gtk/gtkmenu.h:
-
 /usr/include/c++/13/bits/fs_dir.h:
 
 /usr/include/c++/13/bits/basic_ios.tcc:
@@ -6526,6 +6507,36 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 /usr/include/c++/13/bits/invoke.h:
 
 /usr/include/gtk-3.0/gtk/gtkappchooserbutton.h:
+
+/usr/include/glibmm-2.4/glibmm/optionentry.h:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h:
+
+/usr/include/c++/13/clocale:
+
+/usr/include/giomm-2.4/giomm/simplepermission.h:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h:
+
+/usr/include/giomm-2.4/giomm/charsetconverter.h:
+
+/usr/include/freetype2/freetype/config/integer-types.h:
+
+/usr/include/c++/13/tr1/poly_laguerre.tcc:
+
+/usr/include/c++/13/tr1/special_function_util.h:
+
+/usr/include/gtk-3.0/gtk/gtkmenu.h:
+
+/usr/include/glib-2.0/gio/ginitable.h:
+
+/usr/include/giomm-2.4/giomm/filteroutputstream.h:
+
+/usr/include/gtk-3.0/gtk/gtkimcontextsimple.h:
+
+/usr/include/x86_64-linux-gnu/sys/cdefs.h:
+
+/usr/include/c++/13/atomic:
 
 /usr/include/giomm-2.4/giomm/wrap_init.h:
 
@@ -6635,22 +6646,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/gtk-3.0/gtk/gtkstack.h:
 
-/usr/include/c++/13/bits/locale_facets_nonio.tcc:
-
-/usr/include/giomm-2.4/giomm/socketaddressenumerator.h:
-
-/usr/include/gtkmm-3.0/gtkmm/styleprovider.h:
-
-/usr/include/giomm-2.4/giomm/dbusobjectmanagerclient.h:
-
-/usr/include/glibmm-2.4/glibmm/ustring.h:
-
-/usr/include/giomm-2.4/giomm/simpleaction.h:
-
-/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/MainWindow.hpp:
-
-/usr/include/glib-2.0/gobject/gbinding.h:
-
 /usr/include/asm-generic/int-ll64.h:
 
 /usr/include/giomm-2.4/giomm/proxyresolver.h:
@@ -6677,31 +6672,13 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/c++/13/bits/stl_deque.h:
 
-/usr/include/c++/13/bits/list.tcc:
-
-/usr/include/features-time64.h:
-
-/usr/include/pangomm-1.4/pangomm/attributes.h:
-
-/usr/include/c++/13/type_traits:
-
 /usr/include/c++/13/tuple:
 
 /usr/include/glib-2.0/glib/gspawn.h:
 
-/usr/include/glib-2.0/gio/gioenums.h:
-
-/usr/include/gdkmm-3.0/gdkmm/frameclock.h:
-
-/usr/include/gtk-3.0/gtk/gtk.h:
-
 /usr/lib/x86_64-linux-gnu/gtkmm-3.0/include/gtkmmconfig.h:
 
 /usr/include/c++/13/backward/auto_ptr.h:
-
-/usr/include/atkmm-1.6/atkmm/object.h:
-
-/usr/include/asm-generic/errno.h:
 
 /usr/include/gtkmm-3.0/gtkmm/treeview.h:
 
@@ -6762,6 +6739,42 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 /usr/include/c++/13/bits/shared_ptr_atomic.h:
 
 /usr/include/cairomm-1.0/cairomm/context.h:
+
+/usr/include/gdk-pixbuf-2.0/gdk-pixbuf/gdk-pixbuf-autocleanups.h:
+
+/usr/include/atk-1.0/atk/atkstateset.h:
+
+/usr/include/c++/13/functional:
+
+/usr/include/glib-2.0/gio/gioenums.h:
+
+/usr/include/gtk-3.0/gtk/gtk.h:
+
+/usr/include/gdkmm-3.0/gdkmm/frameclock.h:
+
+/usr/include/c++/13/bits/stl_function.h:
+
+/usr/include/c++/13/bits/locale_facets_nonio.tcc:
+
+/usr/include/giomm-2.4/giomm/socketaddressenumerator.h:
+
+/usr/include/giomm-2.4/giomm/simpleaction.h:
+
+/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/MainWindow.hpp:
+
+/usr/include/glib-2.0/gobject/gbinding.h:
+
+/usr/include/asm-generic/errno.h:
+
+/usr/include/atkmm-1.6/atkmm/object.h:
+
+/usr/include/gtkmm-3.0/gtkmm/styleprovider.h:
+
+/usr/include/giomm-2.4/giomm/dbusobjectmanagerclient.h:
+
+/usr/include/glibmm-2.4/glibmm/ustring.h:
+
+/usr/include/c++/13/tr1/beta_function.tcc:
 
 /usr/include/glib-2.0/gio/gemblemedicon.h:
 
@@ -6950,6 +6963,10 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 /usr/include/c++/13/list:
 
 /usr/include/c++/13/bits/stl_raw_storage_iter.h:
+
+/usr/include/gtkmm-3.0/gtkmm/appchooserbutton.h:
+
+/usr/include/glib-2.0/gio/gdbusmethodinvocation.h:
 
 /usr/include/c++/13/bits/stl_relops.h:
 
@@ -7179,8 +7196,6 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/c++/13/string_view:
 
-/usr/include/gdkmm-3.0/gdkmm/cursor.h:
-
 /usr/include/glib-2.0/gio/gio.h:
 
 /usr/include/gdkmm-3.0/gdkmm/applaunchcontext.h:
@@ -7273,6 +7288,8 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 
 /usr/include/cairomm-1.0/cairomm/scaledfont.h:
 
+/usr/include/c++/13/bits/std_thread.h:
+
 /usr/include/giomm-2.4/giomm/dbusobject.h:
 
 /usr/include/cairomm-1.0/cairomm/types.h:
@@ -7282,6 +7299,10 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 /usr/include/ctype.h:
 
 /usr/include/glibmm-2.4/glibmm/propertyproxy.h:
+
+/usr/include/gtkmm-3.0/gtkmm/scale.h:
+
+/usr/include/glib-2.0/gio/gmemoryoutputstream.h:
 
 /usr/include/glib-2.0/gio/gmenuexporter.h:
 
@@ -8368,7 +8389,3 @@ CMakeFiles/fileshare_client.dir/client/main.cpp.o: /mnt/c/Users/TumRoyal/Documen
 /usr/include/gtkmm-3.0/gtkmm/adjustment.h:
 
 /usr/include/gtkmm-3.0/gtkmm/appchooser.h:
-
-/usr/include/glib-2.0/gio/gdbusmethodinvocation.h:
-
-/usr/include/gtkmm-3.0/gtkmm/appchooserbutton.h:

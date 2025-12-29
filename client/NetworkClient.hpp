@@ -2,6 +2,7 @@
 #pragma once
 #include <string>
 #include <cstdint>
+#include <atomic>
 
 using namespace std;
 
@@ -17,10 +18,14 @@ public:
     bool register_user(const string &user, const string &pass, string &err);
     bool get_text(const string &path, string &content, string &err);
     bool put_text(const string &path, const string &content, string &err);
+    bool upload_file(const std::string &local_path,
+                 const std::string &remote_path,
+                 std::string &err);
 
-    bool upload_file(const string &local_path,
-                 const string &remote_path,
-                 string &err);
+    bool upload_file_with_progress(const std::string &local_path,
+                               const std::string &remote_path,
+                               std::atomic<uint64_t> &sent,
+                               std::string &err);
     bool download_file(const string &remote_path,
                        const string &local_path,
                        string &err);

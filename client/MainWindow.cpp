@@ -2,6 +2,7 @@
 #include "MainWindow.hpp"
 #include <filesystem>
 #include <fstream>
+#include <thread>
 
 using namespace std;
 
@@ -71,15 +72,22 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     hbox3->pack_start(*btn_list_deleted, Gtk::PACK_SHRINK);
     vbox_.pack_start(*hbox3, Gtk::PACK_SHRINK);
     vbox_.pack_start(lbl_status_, Gtk::PACK_SHRINK);
+    progress_upload_.set_show_text(true);
+    progress_upload_.set_fraction(0.0);
+    vbox_.pack_start(progress_upload_, Gtk::PACK_SHRINK);
+
 
     lbl_online_.set_text("Online: ...");
     vbox_.pack_start(lbl_online_, Gtk::PACK_SHRINK);
 
-    // Cập nhật mỗi 10 giây
-    online_timer_ = Glib::signal_timeout().connect_seconds(
-        sigc::mem_fun(*this, &MainWindow::update_online_count),
-        1
+    // Stats polling temporarily disabled (was updating every second)
+    // If you want to re-enable, reconnect `online_timer_` to
+    // `update_online_count` with `Glib::signal_timeout().connect_seconds(...)`.
+    upload_timer_ = Glib::signal_timeout().connect(
+        sigc::mem_fun(*this, &MainWindow::on_upload_progress_tick),
+        100
     );
+
 
 
 
@@ -149,6 +157,8 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
 
     show_all_children();
     refresh_file_list();     // load file list automatically
+
+    
 }
 
 void MainWindow::on_btn_load_clicked() {
@@ -239,15 +249,36 @@ void MainWindow::on_btn_upload_clicked() {
 
     string remote_path = p.filename().string();
 
-    string err;
-    if (!client_.upload_file(local_path, remote_path, err)) {
-        lbl_status_.set_text("Upload failed: " + err);
-        return;
-    }
+    upload_total_ = std::filesystem::file_size(local_path);
+    upload_sent_ = 0;
+    uploading_ = true;
 
-    lbl_status_.set_text("Uploaded " + remote_path + " successfully");
-    refresh_file_list();  // Already exists - ensure it's here
-    expand_and_select(remote_path);
+    btn_upload_.set_sensitive(false);
+    lbl_status_.set_text("Uploading...");
+
+    std::thread([this, local_path, remote_path]() {
+        string err;
+        bool ok = client_.upload_file_with_progress(
+            local_path,
+            remote_path,
+            upload_sent_,
+            err
+        );
+
+        Glib::signal_idle().connect_once([this, ok, err, remote_path]() {
+            uploading_ = false;
+            btn_upload_.set_sensitive(true);
+
+            if (!ok) {
+                lbl_status_.set_text("Upload failed: " + err);
+            } else {
+                lbl_status_.set_text("Uploaded " + remote_path);
+                refresh_file_list();
+                expand_and_select(remote_path);
+            }
+        });
+    }).detach();
+
 }
 
 void MainWindow::on_btn_download_clicked() {
@@ -819,4 +850,23 @@ void MainWindow::on_btn_share_clicked() {
     }
 
     lbl_status_.set_text("Shared " + sel_path + " with " + to_user + " (" + access + ")");
+}
+
+bool MainWindow::on_upload_progress_tick() {
+    if (!uploading_) {
+        progress_upload_.set_fraction(0.0);
+        progress_upload_.set_text("");
+        return true;
+    }
+
+    if (upload_total_ == 0) return true;
+
+    double frac = (double)upload_sent_.load() / (double)upload_total_;
+    if (frac > 1.0) frac = 1.0;
+
+    int percent = (int)(frac * 100);
+    progress_upload_.set_fraction(frac);
+    progress_upload_.set_text(std::to_string(percent) + "%");
+
+    return true;
 }

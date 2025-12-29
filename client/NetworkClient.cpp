@@ -8,6 +8,7 @@
 #include <fstream>
 #include <vector>
 #include <cstdint>
+#include <atomic>
 
 using namespace std;
 using namespace proto;
@@ -510,6 +511,68 @@ bool NetworkClient::send_raw_command(const string &cmd, string &out, string &err
     // Nhận 1 dòng phản hồi
     if (!recv_line(sockfd_, out)) {
         err = "No response";
+        return false;
+    }
+
+    return true;
+}
+
+bool NetworkClient::upload_file_with_progress(
+    const string &local_path,
+    const string &remote_path,
+    std::atomic<uint64_t> &sent,
+    string &err
+) {
+    if (sockfd_ < 0) {
+        err = "Not connected";
+        return false;
+    }
+
+    ifstream ifs(local_path, ios::binary);
+    if (!ifs) {
+        err = "Cannot open local file";
+        return false;
+    }
+
+    ifs.seekg(0, ios::end);
+    uint64_t size = ifs.tellg();
+    ifs.seekg(0);
+
+    string cmd = "UPLOAD " + to_string(size) + " " + remote_path;
+    if (!send_line(sockfd_, cmd)) {
+        err = "Send error";
+        return false;
+    }
+
+    string line;
+    if (!recv_line(sockfd_, line) || line != "OK 100 Ready to receive") {
+        err = line;
+        return false;
+    }
+
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+
+    while (ifs) {
+        ifs.read(buf.data(), BUF);
+        streamsize n = ifs.gcount();
+        if (n <= 0) break;
+
+        if (!send_all(sockfd_, buf.data(), (size_t)n)) {
+            err = "Send data error";
+            return false;
+        }
+
+        sent += (uint64_t)n;
+    }
+
+    if (!recv_line(sockfd_, line)) {
+        err = "No final response";
+        return false;
+    }
+
+    if (line.rfind("OK 200", 0) != 0) {
+        err = line;
         return false;
     }
 
