@@ -401,16 +401,6 @@ bool NetworkClient::move_remote(const string &old_path, const string &new_path, 
     err = line; return false;
 }
 
-bool NetworkClient::copy_remote(const string &src_path, const string &dst_path, string &err) {
-    if (sockfd_ < 0) { err = "Not connected"; return false; }
-    string cmd = "COPY " + src_path + " " + dst_path;
-    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
-    string line;
-    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
-    if (line.rfind("OK 200", 0) == 0) return true;
-    err = line; return false;
-}
-
 bool NetworkClient::delete_remote(const string &path, string &err) {
     if (sockfd_ < 0) { err = "Not connected"; return false; }
     string cmd = "DELETE " + path;

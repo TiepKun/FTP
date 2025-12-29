@@ -156,10 +156,30 @@ CREATE INDEX IF NOT EXISTS idx_transfer_session_user_path
         return false;
     }
 
-    const char *sql_index =
+    // Recreate the unique index for file_entry so UPSERT ... ON CONFLICT(owner_id,path)
+    // is valid (the old partial index with WHERE is_deleted = 0 does not satisfy SQLite).
+    const char *sql_drop_old_idx = "DROP INDEX IF EXISTS idx_file_entry_owner_path;";
+    rc = sqlite3_exec(db_, sql_drop_old_idx, nullptr, nullptr, &errmsg);
+    if (rc != SQLITE_OK) {
+        err = errmsg ? errmsg : "Unknown SQLite error";
+        if (errmsg) sqlite3_free(errmsg);
+        return false;
+    }
+
+    const char *sql_unique_owner_path =
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_entry_owner_path "
+        "ON file_entry(owner_id, path);";
+    rc = sqlite3_exec(db_, sql_unique_owner_path, nullptr, nullptr, &errmsg);
+    if (rc != SQLITE_OK) {
+        err = errmsg ? errmsg : "Unknown SQLite error";
+        if (errmsg) sqlite3_free(errmsg);
+        return false;
+    }
+
+    const char *sql_index_active =
+        "CREATE INDEX IF NOT EXISTS idx_file_entry_owner_path_active "
         "ON file_entry(owner_id, path) WHERE is_deleted = 0;";
-    rc = sqlite3_exec(db_, sql_index, nullptr, nullptr, &errmsg);
+    rc = sqlite3_exec(db_, sql_index_active, nullptr, nullptr, &errmsg);
     if (rc != SQLITE_OK) {
         err = errmsg ? errmsg : "Unknown SQLite error";
         if (errmsg) sqlite3_free(errmsg);
@@ -305,6 +325,8 @@ bool DbSqlite::upsert_file_entry(int owner_id,
         "ON CONFLICT(owner_id, path) DO UPDATE SET "
         "size_bytes = excluded.size_bytes, "
         "is_folder = excluded.is_folder, "
+        "is_deleted = 0, "
+        "deleted_at = NULL, "
         "updated_at = CURRENT_TIMESTAMP;";
 
     sqlite3_stmt *stmt = nullptr;

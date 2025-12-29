@@ -331,7 +331,11 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
 
     uint64_t used = server_.quota_mgr().used(username_);
     server_.db().update_used_bytes(user_id_, used, err);
-    server_.db().upsert_file_entry(user_id_, rel_path, size, false, err);
+    if (!server_.db().upsert_file_entry(user_id_, rel_path, size, false, err)) {
+        server_.logger().log(username_, "UPLOAD DB error: " + err);
+        send_line(sockfd_, "ERR 500 DB error: " + err);
+        return true;
+    }
 
     if (session_id >= 0) {
         server_.db().delete_transfer_session(session_id, err);
@@ -564,7 +568,11 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
     
     uint64_t used = server_.quota_mgr().used(owner_user);
     server_.db().update_used_bytes(owner_id, used, err);
-    server_.db().upsert_file_entry(owner_id, rel_path, size, false, err);
+    if (!server_.db().upsert_file_entry(owner_id, rel_path, size, false, err)) {
+        server_.logger().log(username_, "PUT_TEXT DB error: " + err);
+        send_line(sockfd_, "ERR 500 DB error: " + err);
+        return true;
+    }
     server_.logger().log(username_, "PUT_TEXT " + rel_path + " size=" + to_string(size));
     send_line(sockfd_, "OK 200 Text file updated");
     return true;
@@ -735,7 +743,11 @@ bool ClientSession::cmd_create_folder(const vector<string> &tokens) {
     }
     
     string err;
-    server_.db().upsert_file_entry(user_id_, rel_path, 0, true, err);
+    if (!server_.db().upsert_file_entry(user_id_, rel_path, 0, true, err)) {
+        server_.logger().log(username_, "CREATE_FOLDER DB error: " + err);
+        send_line(sockfd_, "ERR 500 DB error: " + err);
+        return true;
+    }
     server_.logger().log(username_, "CREATE_FOLDER " + rel_path);
     send_line(sockfd_, "OK 200 Folder created");
     return true;

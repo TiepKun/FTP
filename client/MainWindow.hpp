@@ -26,7 +26,6 @@ protected:
     void on_btn_create_folder_clicked();
     void on_btn_rename_clicked();
     void on_btn_move_clicked();
-    void on_btn_copy_clicked();
     void on_btn_delete_clicked();
     void on_btn_restore_clicked();
     void on_btn_list_deleted_clicked();

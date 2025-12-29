@@ -59,14 +59,12 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     Gtk::Button *btn_create_folder = Gtk::manage(new Gtk::Button("Create Folder"));
     Gtk::Button *btn_rename = Gtk::manage(new Gtk::Button("Rename"));
     Gtk::Button *btn_move = Gtk::manage(new Gtk::Button("Move"));
-    Gtk::Button *btn_copy = Gtk::manage(new Gtk::Button("Copy"));
     Gtk::Button *btn_delete = Gtk::manage(new Gtk::Button("Delete"));
     Gtk::Button *btn_restore = Gtk::manage(new Gtk::Button("Restore"));
     Gtk::Button *btn_list_deleted = Gtk::manage(new Gtk::Button("Show Deleted"));
     hbox3->pack_start(*btn_create_folder, Gtk::PACK_SHRINK);
     hbox3->pack_start(*btn_rename, Gtk::PACK_SHRINK);
     hbox3->pack_start(*btn_move, Gtk::PACK_SHRINK);
-    hbox3->pack_start(*btn_copy, Gtk::PACK_SHRINK);
     hbox3->pack_start(*btn_delete, Gtk::PACK_SHRINK);
     hbox3->pack_start(*btn_restore, Gtk::PACK_SHRINK);
     hbox3->pack_start(*btn_list_deleted, Gtk::PACK_SHRINK);
@@ -142,8 +140,6 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
         sigc::mem_fun(*this, &MainWindow::on_btn_rename_clicked));
     btn_move->signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_move_clicked));
-    btn_copy->signal_clicked().connect(
-        sigc::mem_fun(*this, &MainWindow::on_btn_copy_clicked));
     btn_delete->signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_delete_clicked));
     btn_restore->signal_clicked().connect(
@@ -457,7 +453,11 @@ void MainWindow::on_btn_rename_clicked() {
         return;
     }
     lbl_status_.set_text("Renamed to " + dst);
+    // Keep inputs/selection in sync with the new name to avoid stale paths.
+    entry_path_.set_text(dst);
+    entry_target_.set_text(dst);
     refresh_file_list();
+    expand_and_select(dst);
 }
 
 void MainWindow::on_btn_move_clicked() {
@@ -475,19 +475,6 @@ void MainWindow::on_btn_move_clicked() {
         return;
     }
     lbl_status_.set_text("Moved to " + dst);
-    refresh_file_list();
-}
-
-void MainWindow::on_btn_copy_clicked() {
-    string src = entry_path_.get_text();
-    string dst = entry_target_.get_text();
-    if (src.empty() || dst.empty()) { lbl_status_.set_text("Fill source (main input) and target"); return; }
-    string err;
-    if (!client_.copy_remote(src, dst, err)) {
-        lbl_status_.set_text("Copy failed: " + err);
-        return;
-    }
-    lbl_status_.set_text("Copied to " + dst);
     refresh_file_list();
 }
 
