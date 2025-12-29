@@ -8,8 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/Users/tiepnguyen/Downloads/IT4062/FTP/common/Protocol.cpp" "CMakeFiles/common.dir/common/Protocol.cpp.o" "gcc" "CMakeFiles/common.dir/common/Protocol.cpp.o.d"
-  "/Users/tiepnguyen/Downloads/IT4062/FTP/common/Utils.cpp" "CMakeFiles/common.dir/common/Utils.cpp.o" "gcc" "CMakeFiles/common.dir/common/Utils.cpp.o.d"
+  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common/Protocol.cpp" "CMakeFiles/common.dir/common/Protocol.cpp.o" "gcc" "CMakeFiles/common.dir/common/Protocol.cpp.o.d"
+  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/common/Utils.cpp" "CMakeFiles/common.dir/common/Utils.cpp.o" "gcc" "CMakeFiles/common.dir/common/Utils.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

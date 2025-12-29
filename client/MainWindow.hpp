@@ -31,11 +31,12 @@ protected:
     void on_btn_list_deleted_clicked();
     void on_btn_share_clicked();
     void on_btn_change_role_clicked();
+    void on_btn_logout_clicked();
     std::vector<std::string> collect_folder_paths();
     bool choose_folder_dialog(std::string &out_path);
     void refresh_file_list();
     void on_file_selected();
-    bool update_online_count();
+    
 
     NetworkClient client_;
     string username_;
@@ -58,10 +59,8 @@ protected:
     Gtk::TextView text_view_;
     Gtk::Box *actions_box_ = nullptr;
     Gtk::Label lbl_status_;
-    Gtk::Label lbl_online_;
     Gtk::Entry entry_target_;
 
-    sigc::connection online_timer_;
     // ===== FILE LIST MODEL =====
     class FileModelColumns : public Gtk::TreeModel::ColumnRecord {
     public:
@@ -114,6 +113,18 @@ protected:
     sigc::connection upload_timer_;
 
     bool on_upload_progress_tick();
+
+    // ===== Download progress =====
+    Gtk::ProgressBar progress_download_;
+    std::atomic<uint64_t> download_received_{0};
+    uint64_t download_total_{0};
+    std::atomic<bool> downloading_{false};
+    sigc::connection download_timer_;
+
+    // Logout button
+    Gtk::Button btn_logout_{"Logout"};
+
+    bool on_download_progress_tick();
     void on_owned_selection_changed();
     void on_shared_selection_changed();
     void update_action_sensitivity(bool is_shared, bool can_download, bool can_edit);

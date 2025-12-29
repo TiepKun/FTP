@@ -29,10 +29,27 @@ public:
     bool download_file(const string &remote_path,
                        const string &local_path,
                        string &err);
-    bool pause_upload(const string &remote_path, uint64_t total_size, string &err);
+    bool download_file_with_progress(
+        const string &remote_path,
+        const string &local_path,
+        std::atomic<uint64_t> &received,
+        uint64_t &total,
+        string &err
+    );
+    bool pause_upload(const string &remote_path, string &err);
     bool continue_upload(const string &remote_path, const string &local_path, string &err);
+    bool continue_upload_with_progress(const string &remote_path, const string &local_path,
+                                       std::atomic<uint64_t> &sent, uint64_t &total, string &err);
+    // After server has replied OK 100 Continue from <offset> size <remaining>,
+    // send remaining bytes from local file starting at `offset`.
+    bool resume_upload_stream(const string &remote_path, const string &local_path,
+                              uint64_t offset, std::atomic<uint64_t> &sent, uint64_t total, string &err);
     bool pause_download(const string &remote_path, uint64_t offset, string &err);
     bool continue_download(const string &remote_path, const string &local_path, string &err);
+    bool continue_download_with_progress(const string &remote_path, const string &local_path,
+                                         std::atomic<uint64_t> &received, uint64_t &total, string &err);
+    // Ensure socket is connected and authenticated (reconnect+auth when needed)
+    bool ensure_connected(string &err);
     bool unzip_remote(const string &zip_path, const string &target_dir, string &err);
     bool create_remote_folder(const string &remote_path, string &err);
     bool rename_remote(const string &old_path, const string &new_path, string &err);
@@ -48,4 +65,9 @@ public:
 
 private:
     int sockfd_ = -1;
+    // store last connected host/port and last successful auth credentials
+    std::string last_host_;
+    int last_port_ = 0;
+    std::string last_user_;
+    std::string last_pass_;
 };

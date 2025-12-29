@@ -1,5 +1,6 @@
 // ===== file: client/MainWindow.cpp =====
 #include "MainWindow.hpp"
+#include "LoginWindow.hpp"
 #include <filesystem>
 #include <fstream>
 #include <thread>
@@ -75,18 +76,39 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     progress_upload_.set_show_text(true);
     progress_upload_.set_fraction(0.0);
     vbox_.pack_start(progress_upload_, Gtk::PACK_SHRINK);
+    progress_download_.set_show_text(true);
+    progress_download_.set_fraction(0.0);
+    vbox_.pack_start(progress_download_, Gtk::PACK_SHRINK);
 
 
-    lbl_online_.set_text("Online: ...");
-    vbox_.pack_start(lbl_online_, Gtk::PACK_SHRINK);
-
-    // Stats polling temporarily disabled (was updating every second)
-    // If you want to re-enable, reconnect `online_timer_` to
-    // `update_online_count` with `Glib::signal_timeout().connect_seconds(...)`.
+    // Stats UI removed (online count)
     upload_timer_ = Glib::signal_timeout().connect(
         sigc::mem_fun(*this, &MainWindow::on_upload_progress_tick),
         100
     );
+    download_timer_ = Glib::signal_timeout().connect(
+        sigc::mem_fun(*this, &MainWindow::on_download_progress_tick),
+        100
+    );
+
+    // Logout button: place at bottom-right and style red
+    auto css = Gtk::CssProvider::create();
+    try {
+        css->load_from_data(
+            ".logout { background-image: none; background-color: #d9534f; color: white; }"
+        );
+        btn_logout_.get_style_context()->add_provider(css, GTK_STYLE_PROVIDER_PRIORITY_USER);
+        btn_logout_.get_style_context()->add_class("logout");
+    } catch (...) {
+        // ignore CSS errors
+    }
+
+    Gtk::Box *hbot = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_HORIZONTAL));
+    Gtk::Label *spacer = Gtk::manage(new Gtk::Label(""));
+    spacer->set_hexpand(true);
+    hbot->pack_start(*spacer, Gtk::PACK_EXPAND_WIDGET);
+    hbot->pack_start(btn_logout_, Gtk::PACK_SHRINK);
+    vbox_.pack_end(*hbot, Gtk::PACK_SHRINK);
 
 
 
@@ -177,6 +199,7 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
         sigc::mem_fun(*this, &MainWindow::on_btn_share_clicked));
     btn_change_role->signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_change_role_clicked));
+    btn_logout_.signal_clicked().connect(sigc::mem_fun(*this, &MainWindow::on_btn_logout_clicked));
 
     show_all_children();
     refresh_file_list();     // load file list automatically
@@ -315,18 +338,44 @@ void MainWindow::on_btn_download_clicked() {
     }
 
     string local_path = dialog.get_filename();
-    string err;
-    if (!client_.download_file(remote_path, local_path, err)) {
-        lbl_status_.set_text("Download failed: " + err);
-        return;
-    }
-    lbl_status_.set_text("Downloaded to " + local_path);
+    // run download in background with progress
+    download_total_ = 0;
+    download_received_ = 0;
+    downloading_ = true;
+
+    btn_download_.set_sensitive(false);
+    lbl_status_.set_text("Downloading...");
+
+    std::thread([this, local_path, remote_path]() {
+        string err;
+        bool ok = client_.download_file_with_progress(remote_path, local_path, download_received_, download_total_, err);
+        Glib::signal_idle().connect_once([this, ok, err, local_path]() {
+            downloading_ = false;
+            btn_download_.set_sensitive(true);
+            progress_download_.set_fraction(0.0);
+            progress_download_.set_text("");
+            if (!ok) {
+                lbl_status_.set_text("Download failed: " + err);
+            } else {
+                lbl_status_.set_text("Downloaded to " + local_path);
+            }
+        });
+    }).detach();
 }
 
 void MainWindow::on_btn_pause_upload_clicked() {
     string remote_path = entry_path_.get_text();
     string err;
-    if (!client_.pause_upload(remote_path, 0, err)) {
+    if (uploading_) {
+        // currently uploading: stop local upload thread by closing connection
+        uploading_ = false;
+        client_.close();
+        lbl_status_.set_text("Upload paused (connection closed)");
+        return;
+    }
+
+    // If not actively uploading, allow manual pause via protocol
+    if (!client_.pause_upload(remote_path, err)) {
         lbl_status_.set_text("Pause upload failed: " + err);
         return;
     }
@@ -343,17 +392,124 @@ void MainWindow::on_btn_resume_upload_clicked() {
         return;
     }
     string local_path = dialog.get_filename();
-    string err;
-    if (!client_.continue_upload(remote_path, local_path, err)) {
-        lbl_status_.set_text("Resume upload failed: " + err);
-        return;
-    }
-    lbl_status_.set_text("Upload resumed and completed");
-    refresh_file_list();
+    // Resume in background with progress
+    upload_total_ = 0;
+    upload_sent_ = 0;
+    uploading_ = true;
+    btn_upload_.set_sensitive(false);
+    lbl_status_.set_text("Resuming upload...");
+
+    std::thread([this, remote_path, local_path]() {
+        string err;
+        if (!client_.ensure_connected(err)) {
+            Glib::signal_idle().connect_once([this, err]() {
+                uploading_ = false;
+                btn_upload_.set_sensitive(true);
+                lbl_status_.set_text(string("Resume upload failed: ") + err);
+            });
+            return;
+        }
+
+        // Ask server for resume offset
+        string resp;
+        if (!client_.send_raw_command(string("CONTINUE_UPLOAD ") + remote_path, resp, err)) {
+            Glib::signal_idle().connect_once([this, err]() {
+                uploading_ = false;
+                btn_upload_.set_sensitive(true);
+                lbl_status_.set_text(string("Resume upload failed: ") + err);
+            });
+            return;
+        }
+
+        // Expect: OK 100 Continue from <offset> size <remaining>
+        if (resp.rfind("OK", 0) != 0) {
+            Glib::signal_idle().connect_once([this, resp]() {
+                uploading_ = false;
+                btn_upload_.set_sensitive(true);
+                lbl_status_.set_text(string("Resume upload failed: ") + resp);
+            });
+            return;
+        }
+
+        // parse offset and remaining
+        uint64_t offset = 0, remaining = 0;
+        size_t pos = resp.find("Continue from ");
+        if (pos != string::npos) {
+            pos += strlen("Continue from ");
+            size_t pos2 = resp.find(" size ", pos);
+            if (pos2 != string::npos) {
+                string offs = resp.substr(pos, pos2 - pos);
+                try { offset = stoull(offs); } catch (...) { offset = 0; }
+                size_t pos3 = pos2 + strlen(" size ");
+                string rem = resp.substr(pos3);
+                try { remaining = stoull(rem); } catch (...) { remaining = 0; }
+            }
+        }
+
+        if (remaining == 0) {
+            Glib::signal_idle().connect_once([this, resp]() {
+                uploading_ = false;
+                btn_upload_.set_sensitive(true);
+                lbl_status_.set_text(string("Resume upload failed: invalid server response: ") + resp);
+            });
+            return;
+        }
+
+        // Validate user selected the original file (not .tmp) and size
+        if (local_path.size() >= 4 && local_path.substr(local_path.size() - 4) == ".tmp") {
+            Glib::signal_idle().connect_once([this]() {
+                uploading_ = false;
+                btn_upload_.set_sensitive(true);
+                lbl_status_.set_text("Please select the original local file (not the .tmp)");
+            });
+            return;
+        }
+
+        uint64_t local_size = 0;
+        try { local_size = std::filesystem::file_size(local_path); } catch (...) { local_size = 0; }
+        if (local_size < offset) {
+            Glib::signal_idle().connect_once([this, offset, local_size]() {
+                uploading_ = false;
+                btn_upload_.set_sensitive(true);
+                lbl_status_.set_text("Local file is smaller than resume offset: " + to_string(local_size) + " < " + to_string(offset));
+            });
+            return;
+        }
+
+        // All good — start streaming remaining bytes
+        upload_total_ = offset + remaining;
+        upload_sent_ = offset;
+        uploading_ = true;
+
+        bool ok = client_.resume_upload_stream(remote_path, local_path, offset, upload_sent_, upload_total_, err);
+
+        Glib::signal_idle().connect_once([this, ok, err, remote_path]() {
+            uploading_ = false;
+            btn_upload_.set_sensitive(true);
+            progress_upload_.set_fraction(0.0);
+            progress_upload_.set_text("");
+            if (!ok) {
+                lbl_status_.set_text("Resume upload failed: " + err);
+            } else {
+                lbl_status_.set_text("Upload resumed and completed: " + remote_path);
+                refresh_file_list();
+                expand_and_select(remote_path);
+            }
+        });
+    }).detach();
 }
 
 void MainWindow::on_btn_pause_download_clicked() {
     string remote_path = entry_path_.get_text();
+    if (downloading_) {
+        // stop current download and close connection; server will record offset on disconnect
+        downloading_ = false;
+        client_.close();
+        lbl_status_.set_text("Download paused (connection closed)");
+        return;
+    }
+
+    // If not currently downloading, allow manual pause by selecting partial file
     Gtk::FileChooserDialog dialog("Select partial download file", Gtk::FILE_CHOOSER_ACTION_OPEN);
     dialog.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
     dialog.add_button("_Open", Gtk::RESPONSE_OK);
@@ -384,12 +540,39 @@ void MainWindow::on_btn_resume_download_clicked() {
         return;
     }
     string local_path = dialog.get_filename();
-    string err;
-    if (!client_.continue_download(remote_path, local_path, err)) {
-        lbl_status_.set_text("Resume download failed: " + err);
-        return;
-    }
-    lbl_status_.set_text("Download resumed and completed");
+    // run resume in background with progress
+    download_received_ = 0;
+    downloading_ = true;
+    btn_download_.set_sensitive(false);
+    lbl_status_.set_text("Resuming download...");
+
+    std::thread([this, local_path, remote_path]() {
+        string err;
+        // ensure we are connected and authenticated before attempting resume
+        if (!client_.ensure_connected(err)) {
+            Glib::signal_idle().connect_once([this, err]() {
+                downloading_ = false;
+                btn_download_.set_sensitive(true);
+                progress_download_.set_fraction(0.0);
+                progress_download_.set_text("");
+                lbl_status_.set_text(string("Resume download failed: ") + err);
+            });
+            return;
+        }
+
+        bool ok = client_.continue_download_with_progress(remote_path, local_path, download_received_, download_total_, err);
+        Glib::signal_idle().connect_once([this, ok, err, local_path]() {
+            downloading_ = false;
+            btn_download_.set_sensitive(true);
+            progress_download_.set_fraction(0.0);
+            progress_download_.set_text("");
+            if (!ok) {
+                lbl_status_.set_text("Resume download failed: " + err);
+            } else {
+                lbl_status_.set_text("Download resumed and completed: " + local_path);
+            }
+        });
+    }).detach();
 }
 
 void MainWindow::on_btn_unzip_clicked() {
@@ -538,6 +721,28 @@ void MainWindow::on_btn_list_deleted_clicked() {
     dlg.run();
 }
 
+void MainWindow::on_btn_logout_clicked() {
+    string resp, err;
+    if (!client_.send_raw_command("LOGOUT", resp, err)) {
+        lbl_status_.set_text("Logout failed: " + err);
+        return;
+    }
+    client_.close();
+
+    // Create login window and show it, then close this main window
+    LoginWindow *login = new LoginWindow();
+    auto app = Glib::RefPtr<Gtk::Application>::cast_dynamic(get_application());
+    if (app) app->add_window(*login);
+    login->signal_hide().connect([login]() { delete login; });
+
+    // Ensure this MainWindow is deleted when hidden
+    // update_online_count removed (no online stats shown)
+    this->signal_hide().connect([this]() { delete this; });
+
+    login->show();
+    hide();
+}
+
 void MainWindow::refresh_file_list() {
     string paths, err;
 
@@ -640,24 +845,7 @@ void MainWindow::on_file_selected() {
 }
 
 
-bool MainWindow::update_online_count() {
-    string response, err;
-
-    if (!client_.send_raw_command("STATS", response, err)) {
-        lbl_online_.set_text("Online: ?");
-        return true; // vẫn chạy timer lần sau
-    }
-
-    size_t pos = response.find("online=");
-    if (pos != string::npos) {
-        size_t start = pos + 7;
-        size_t end = response.find(' ', start);
-        string count = response.substr(start, end - start);
-        lbl_online_.set_text("Online: " + count);
-    }
-
-    return true; // quan trọng: TRUE để timer tiếp tục
-}
+// online stats removed
 
 std::vector<std::string> MainWindow::split_path(const std::string &path) {
     std::vector<std::string> parts;
@@ -1045,6 +1233,25 @@ bool MainWindow::on_upload_progress_tick() {
     int percent = (int)(frac * 100);
     progress_upload_.set_fraction(frac);
     progress_upload_.set_text(std::to_string(percent) + "%");
+
+    return true;
+}
+
+bool MainWindow::on_download_progress_tick() {
+    if (!downloading_) {
+        progress_download_.set_fraction(0.0);
+        progress_download_.set_text("");
+        return true;
+    }
+
+    if (download_total_ == 0) return true;
+
+    double frac = (double)download_received_.load() / (double)download_total_;
+    if (frac > 1.0) frac = 1.0;
+
+    int percent = (int)(frac * 100);
+    progress_download_.set_fraction(frac);
+    progress_download_.set_text(std::to_string(percent) + "%");
 
     return true;
 }

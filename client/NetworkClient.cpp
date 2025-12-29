@@ -13,6 +13,16 @@
 using namespace std;
 using namespace proto;
 
+static bool parse_u64_safe(const std::string &s, uint64_t &out) {
+    try {
+        out = stoull(s);
+        return true;
+    } catch (...) {
+        out = 0;
+        return false;
+    }
+}
+
 NetworkClient::NetworkClient() {}
 
 NetworkClient::~NetworkClient() {
@@ -38,6 +48,10 @@ bool NetworkClient::connect_to(const string &host, int port) {
         sockfd_ = -1;
         return false;
     }
+
+    // remember host/port for possible reconnects
+    last_host_ = host;
+    last_port_ = port;
 
     return true;
 }
@@ -67,8 +81,25 @@ bool NetworkClient::auth(const string &user, const string &pass, string &err) {
         return false;
     }
 
-    if (line.rfind("OK", 0) == 0) return true;
+    if (line.rfind("OK", 0) == 0) {
+        // remember credentials for reconnect+auth
+        last_user_ = user;
+        last_pass_ = pass;
+        return true;
+    }
     err = line;    return false;
+}
+
+bool NetworkClient::ensure_connected(string &err) {
+    if (sockfd_ >= 0) return true;
+    if (last_host_.empty() || last_port_ == 0) { err = "No stored host/port to reconnect"; return false; }
+    if (last_user_.empty() || last_pass_.empty()) { err = "No stored credentials to re-authenticate"; return false; }
+    if (!connect_to(last_host_, last_port_)) { err = "Cannot reconnect to server"; return false; }
+    if (!auth(last_user_, last_pass_, err)) {
+        close();
+        return false;
+    }
+    return true;
 }
 
 bool NetworkClient::register_user(const string &user, const string &pass, string &err) {
@@ -118,7 +149,11 @@ bool NetworkClient::get_text(const string &path, string &content, string &err) {
         err = "Invalid response: " + line;
         return false;
     }
-    uint64_t size = stoull(tokens[2]);
+    uint64_t size = 0;
+    if (!parse_u64_safe(tokens[2], size)) {
+        err = "Invalid size in response: " + line;
+        return false;
+    }
     content.clear();
     content.resize(size);
     if (!recv_exact(sockfd_, &content[0], size)) {
@@ -252,7 +287,8 @@ bool NetworkClient::download_file(const string &remote_path,
         err = line;
         return false;
     }
-    uint64_t size = stoull(tok[2]);
+    uint64_t size = 0;
+    if (!parse_u64_safe(tok[2], size)) { err = string("Invalid size in response: ") + line; return false; }
 
     ofstream ofs(local_path, ios::binary);
     if (!ofs) {
@@ -279,44 +315,205 @@ bool NetworkClient::download_file(const string &remote_path,
     return true;
 }
 
-bool NetworkClient::pause_upload(const string &remote_path, uint64_t total_size, string &err) {
+bool NetworkClient::download_file_with_progress(
+    const string &remote_path,
+    const string &local_path,
+    std::atomic<uint64_t> &received,
+    uint64_t &total,
+    string &err
+) {
     if (sockfd_ < 0) { err = "Not connected"; return false; }
-    string cmd = "PAUSE_UPLOAD " + remote_path + " " + to_string(total_size);
+
+    string cmd = "DOWNLOAD " + remote_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    auto tok = split_tokens(line);
+    if (tok.size() < 3 || tok[0] != "OK" || tok[1] != "100") { err = line; return false; }
+    uint64_t size = 0;
+    if (!parse_u64_safe(tok[2], size)) { err = string("Invalid size in response: ") + line; return false; }
+    total = size;
+    received = 0;
+
+    ofstream ofs(local_path, ios::binary);
+    if (!ofs) { err = "Cannot open local path"; return false; }
+
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+    uint64_t remaining = size;
+    while (remaining > 0) {
+        size_t chunk = remaining > BUF ? BUF : (size_t)remaining;
+        if (!recv_exact(sockfd_, buf.data(), chunk)) {
+            err = "Receive data error";
+            return false;
+        }
+        ofs.write(buf.data(), (streamsize)chunk);
+        if (!ofs) { err = "Write local file error"; return false; }
+        remaining -= chunk;
+        received += chunk;
+    }
+    return true;
+}
+
+bool NetworkClient::continue_download_with_progress(const string &remote_path, const string &local_path,
+                                                    std::atomic<uint64_t> &received, uint64_t &total, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "CONTINUE_DOWNLOAD " + remote_path;
     if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
     string line;
     if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
-    if (line.rfind("OK 200", 0) == 0) return true;
-    err = line; return false;
+    auto tok = split_tokens(line);
+    if (tok.size() < 6 || tok[0] != "OK") { err = line; return false; }
+    uint64_t offset = 0, remaining = 0;
+    if (!parse_u64_safe(tok[3], offset) || !parse_u64_safe(tok[5], remaining)) { err = string("Invalid offset/remaining in response: ") + line; return false; }
+
+    ofstream ofs(local_path, ios::binary | ios::app);
+    if (!ofs) { err = "Cannot open local file"; return false; }
+
+    received = offset;
+    total = offset + remaining;
+
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+    uint64_t recvd = 0;
+    while (recvd < remaining) {
+        size_t chunk = (remaining - recvd) > BUF ? BUF : (size_t)(remaining - recvd);
+        if (!recv_exact(sockfd_, buf.data(), chunk)) { err = "Receive data error"; return false; }
+        ofs.write(buf.data(), (streamsize)chunk);
+        if (!ofs) { err = "Write local file error"; return false; }
+        recvd += chunk;
+        received += chunk;
+    }
+    return true;
 }
+
+bool NetworkClient::pause_upload(const string &remote_path, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+
+    string cmd = "PAUSE_UPLOAD " + remote_path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line;
+    return false;
+}
+
 
 bool NetworkClient::continue_upload(const string &remote_path, const string &local_path, string &err) {
     if (sockfd_ < 0) { err = "Not connected"; return false; }
-    string cmd = "CONTINUE_UPLOAD " + remote_path;
+    // include local total size so server can resume even if DB session missing
+    ifstream ifs(local_path, ios::binary | ios::ate);
+    uint64_t local_size = 0;
+    if (ifs) local_size = (uint64_t)ifs.tellg();
+    string cmd = "CONTINUE_UPLOAD " + remote_path + " " + to_string(local_size);
     if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
     string line;
     if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
     auto tok = split_tokens(line);
     // Expect: OK 100 Continue from <offset> size <remaining>
     if (tok.size() < 6 || tok[0] != "OK") { err = line; return false; }
-    uint64_t offset = stoull(tok[3]);
-    uint64_t remaining = stoull(tok[5]);
+    uint64_t offset = 0, remaining = 0;
+    if (!parse_u64_safe(tok[3], offset) || !parse_u64_safe(tok[5], remaining)) { err = string("Invalid offset/remaining in response: ") + line; return false; }
 
-    ifstream ifs(local_path, ios::binary);
-    if (!ifs) { err = "Cannot open local file"; return false; }
-    ifs.seekg((streamsize)offset);
+    ifstream ifs2(local_path, ios::binary);
+    if (!ifs2) { err = "Cannot open local file"; return false; }
+    ifs2.seekg((streamsize)offset);
 
     const size_t BUF = 64 * 1024;
     vector<char> buf(BUF);
     uint64_t sent = 0;
     while (sent < remaining) {
         size_t chunk = (remaining - sent) > BUF ? BUF : (size_t)(remaining - sent);
-        ifs.read(buf.data(), (streamsize)chunk);
-        streamsize got = ifs.gcount();
+        ifs2.read(buf.data(), (streamsize)chunk);
+        streamsize got = ifs2.gcount();
         if (got <= 0) break;
         if (!send_all(sockfd_, buf.data(), (size_t)got)) { err = "Send data error"; return false; }
         sent += (uint64_t)got;
     }
 
+    if (!recv_line(sockfd_, line)) { err = "No final response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::continue_upload_with_progress(const string &remote_path, const string &local_path,
+                                                 std::atomic<uint64_t> &sent, uint64_t &total, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    // include local file total so server can resume even if DB session missing
+    ifstream ifs_probe(local_path, ios::binary | ios::ate);
+    uint64_t local_total = 0;
+    if (ifs_probe) local_total = (uint64_t)ifs_probe.tellg();
+    string cmd = "CONTINUE_UPLOAD " + remote_path + " " + to_string(local_total);
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    auto tok = split_tokens(line);
+    if (tok.size() < 6 || tok[0] != "OK") { err = line; return false; }
+    uint64_t offset = 0, remaining = 0;
+    if (!parse_u64_safe(tok[3], offset) || !parse_u64_safe(tok[5], remaining)) { err = string("Invalid offset/remaining in response: ") + line; return false; }
+
+    ifstream ifs(local_path, ios::binary);
+    if (!ifs) { err = "Cannot open local file"; return false; }
+    ifs.seekg((streamsize)offset);
+
+    sent = offset;
+    total = offset + remaining;
+
+    const size_t BUF = 64 * 1024;
+    vector<char> buf(BUF);
+    uint64_t sent_here = 0;
+    while (sent_here < remaining) {
+        size_t chunk = (remaining - sent_here) > BUF ? BUF : (size_t)(remaining - sent_here);
+        ifs.read(buf.data(), (streamsize)chunk);
+        streamsize got = ifs.gcount();
+        if (got <= 0) break;
+        if (!send_all(sockfd_, buf.data(), (size_t)got)) { err = "Send data error"; return false; }
+        sent_here += (uint64_t)got;
+        sent += (uint64_t)got;
+    }
+
+    if (!recv_line(sockfd_, line)) { err = "No final response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
+bool NetworkClient::resume_upload_stream(const string &remote_path, const string &local_path,
+                                        uint64_t offset, std::atomic<uint64_t> &sent, uint64_t total, string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+
+    std::ifstream ifs(local_path, std::ios::binary);
+    if (!ifs) { err = "Cannot open local file"; return false; }
+    uint64_t local_size = 0;
+    try {
+        ifs.seekg(0, std::ios::end);
+        local_size = (uint64_t)ifs.tellg();
+    } catch (...) {}
+    if (offset > local_size) { err = "Local file smaller than offset"; return false; }
+
+    ifs.clear();
+    ifs.seekg((std::streamoff)offset);
+
+    const size_t BUF = 64 * 1024;
+    std::vector<char> buf(BUF);
+    uint64_t remaining = total > offset ? total - offset : 0;
+    uint64_t sent_here = 0;
+
+    while (sent_here < remaining) {
+        size_t chunk = (remaining - sent_here > BUF) ? BUF : (size_t)(remaining - sent_here);
+        ifs.read(buf.data(), (std::streamsize)chunk);
+        std::streamsize got = ifs.gcount();
+        if (got <= 0) break;
+        if (!send_all(sockfd_, buf.data(), (size_t)got)) { err = "Send data error"; return false; }
+        sent_here += (uint64_t)got;
+        sent += (uint64_t)got;
+    }
+
+    // Read final response from server
+    string line;
     if (!recv_line(sockfd_, line)) { err = "No final response"; return false; }
     if (line.rfind("OK 200", 0) == 0) return true;
     err = line; return false;
@@ -340,8 +537,8 @@ bool NetworkClient::continue_download(const string &remote_path, const string &l
     if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
     auto tok = split_tokens(line);
     if (tok.size() < 6 || tok[0] != "OK") { err = line; return false; }
-    uint64_t offset = stoull(tok[3]);
-    uint64_t remaining = stoull(tok[5]);
+    uint64_t offset = 0, remaining = 0;
+    if (!parse_u64_safe(tok[3], offset) || !parse_u64_safe(tok[5], remaining)) { err = string("Invalid offset/remaining in response: ") + line; return false; }
 
     ofstream ofs(local_path, ios::binary | ios::app);
     if (!ofs) { err = "Cannot open local file"; return false; }

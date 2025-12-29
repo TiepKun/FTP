@@ -7,6 +7,8 @@
 #include "QuotaManager.hpp"
 #include "Db.hpp"
 #include <unordered_map>
+#include "UploadState.hpp"
+#include <mutex>
 
 using namespace std;
 
@@ -41,6 +43,20 @@ public:
         return online_users_;
     }
 
+    std::shared_ptr<UploadState> get_upload_state(
+        const std::string &username,
+        const std::string &path
+    );
+
+    std::shared_ptr<UploadState> create_upload_state(
+        const std::string &username,
+        const std::string &path
+    );
+
+    void remove_upload_state(
+        const std::string &username,
+        const std::string &path
+    );
 
 private:
     string root_dir_;
@@ -55,4 +71,7 @@ private:
 
     // user -> số session đang logged-in
     unordered_map<string, int> online_users_;
+    // upload state per user:path
+    std::unordered_map<std::string, std::shared_ptr<UploadState>> upload_states_;
+    std::mutex upload_states_mutex_;
 };

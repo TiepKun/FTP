@@ -101,3 +101,35 @@ void FileServer::user_logout(const std::string &user) {
 int FileServer::online_users_count() const {
     return online_users_.size();
 }
+
+std::shared_ptr<UploadState> FileServer::get_upload_state(
+    const std::string &username,
+    const std::string &path
+) {
+    std::string key = username + ":" + path;
+    std::lock_guard<std::mutex> lk(upload_states_mutex_);
+    auto it = upload_states_.find(key);
+    if (it == upload_states_.end()) return nullptr;
+    return it->second;
+}
+
+void FileServer::remove_upload_state(
+    const std::string &username,
+    const std::string &path
+) {
+    std::lock_guard<std::mutex> lk(upload_states_mutex_);
+    upload_states_.erase(username + ":" + path);
+}
+
+
+std::shared_ptr<UploadState> FileServer::create_upload_state(
+    const std::string &username,
+    const std::string &path
+) {
+    std::string key = username + ":" + path;
+    std::lock_guard<std::mutex> lk(upload_states_mutex_);
+
+    auto state = std::make_shared<UploadState>();
+    upload_states_[key] = state;
+    return state;
+}

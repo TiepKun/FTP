@@ -8,10 +8,10 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/Users/tiepnguyen/Downloads/IT4062/FTP/client/LoginWindow.cpp" "CMakeFiles/fileshare_client.dir/client/LoginWindow.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/LoginWindow.cpp.o.d"
-  "/Users/tiepnguyen/Downloads/IT4062/FTP/client/MainWindow.cpp" "CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o.d"
-  "/Users/tiepnguyen/Downloads/IT4062/FTP/client/NetworkClient.cpp" "CMakeFiles/fileshare_client.dir/client/NetworkClient.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/NetworkClient.cpp.o.d"
-  "/Users/tiepnguyen/Downloads/IT4062/FTP/client/main.cpp" "CMakeFiles/fileshare_client.dir/client/main.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/main.cpp.o.d"
+  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/LoginWindow.cpp" "CMakeFiles/fileshare_client.dir/client/LoginWindow.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/LoginWindow.cpp.o.d"
+  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/MainWindow.cpp" "CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/MainWindow.cpp.o.d"
+  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/NetworkClient.cpp" "CMakeFiles/fileshare_client.dir/client/NetworkClient.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/NetworkClient.cpp.o.d"
+  "/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/client/main.cpp" "CMakeFiles/fileshare_client.dir/client/main.cpp.o" "gcc" "CMakeFiles/fileshare_client.dir/client/main.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
