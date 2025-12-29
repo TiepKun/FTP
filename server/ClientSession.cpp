@@ -213,7 +213,7 @@ bool ClientSession::cmd_register(const vector<string> &tokens) {
         return true;
     }
 
-    const uint64_t default_quota = 100ull * 1024ull * 1024ull; // 100 MB
+    const uint64_t default_quota = 2ull * 1024ull * 1024ull * 1024ull; // 2 GB
     string pass_hashed = hash_password(pass);
 
     if (!server_.db().create_user(user, pass_hashed, default_quota, err)) {
@@ -1056,140 +1056,142 @@ bool ClientSession::cmd_pause_upload(const vector<string> &tokens) {
         send_line(sockfd_, "ERR 400 Usage: PAUSE_UPLOAD <path>");
         return true;
     }
-    
+
     string rel_path = tokens[1];
     string base_dir = server_.root_dir() + "/" + username_;
-    string full_path = base_dir + "/" + rel_path;
+    string tmp_path = base_dir + "/" + rel_path + ".tmp";
 
-    string tmp_path = full_path + ".tmp";
-    uint64_t current_size = utils::file_exists(tmp_path) ? file_size(tmp_path) : file_size(full_path);
-    
-    string err;
-    int session_id;
-    if (!server_.db().get_transfer_session(user_id_, rel_path, "UPLOAD", session_id, current_size, current_size, err)) {
-        // Create new session
-        uint64_t total_size = 0;
-        if (tokens.size() >= 3) {
-            try {
-                total_size = stoull(tokens[2]);
-            } catch (...) {}
-        }
-        if (!server_.db().create_transfer_session(user_id_, rel_path, "UPLOAD", total_size, current_size, session_id, err)) {
-            send_line(sockfd_, "ERR 500 Cannot create session");
-            return true;
-        }
-    } else {
-        server_.db().update_transfer_session(session_id, current_size, err);
+    if (!utils::file_exists(tmp_path)) {
+        send_line(sockfd_, "ERR 404 No uploading file to pause");
+        return true;
     }
-    
-    server_.logger().log(username_, "PAUSE_UPLOAD " + rel_path + " at " + to_string(current_size));
-    send_line(sockfd_, "OK 200 Upload paused at offset " + to_string(current_size));
+
+    int session_id;
+    uint64_t offset, total_size;
+    string err;
+
+    if (!server_.db().get_transfer_session(
+            user_id_, rel_path, "UPLOAD",
+            session_id, offset, total_size, err)) {
+        send_line(sockfd_, "ERR 409 No active upload session");
+        return true;
+    }
+
+    uint64_t current_offset = file_size(tmp_path);
+
+    server_.db().update_transfer_session(session_id, current_offset, err);
+
+    server_.logger().log(
+        username_, "PAUSE_UPLOAD " + rel_path +
+        " at " + to_string(current_offset));
+
+    send_line(sockfd_,
+        "OK 200 Upload paused at offset " +
+        to_string(current_offset));
+
     return true;
 }
+
 
 bool ClientSession::cmd_continue_upload(const vector<string> &tokens) {
     if (tokens.size() < 2) {
         send_line(sockfd_, "ERR 400 Usage: CONTINUE_UPLOAD <path>");
         return true;
     }
-    
+
     string rel_path = tokens[1];
-    string err;
+    string base_dir = server_.root_dir() + "/" + username_;
+    string full_path = base_dir + "/" + rel_path;
+    string tmp_path  = full_path + ".tmp";
+
     int session_id;
     uint64_t offset, total_size;
-    
-    if (!server_.db().get_transfer_session(user_id_, rel_path, "UPLOAD", session_id, offset, total_size, err)) {
+    string err;
+
+    if (!server_.db().get_transfer_session(
+            user_id_, rel_path, "UPLOAD",
+            session_id, offset, total_size, err)) {
         send_line(sockfd_, "ERR 404 No paused upload found");
         return true;
     }
-    
-    string base_dir = server_.root_dir() + "/" + username_;
-    string full_path = base_dir + "/" + rel_path;
-    string tmp_path = full_path + ".tmp";
-    string target_path = utils::file_exists(tmp_path) ? tmp_path : full_path;
-    utils::ensure_dir(base_dir);
-    size_t parent_pos = full_path.find_last_of('/');
-    if (parent_pos != string::npos && parent_pos > 0) {
-        utils::ensure_dir(full_path.substr(0, parent_pos));
-    }
-    
-    if (total_size < offset) {
-        send_line(sockfd_, "ERR 400 Invalid resume offset");
+
+    if (!utils::file_exists(tmp_path)) {
+        send_line(sockfd_, "ERR 409 Temp file missing");
         return true;
     }
 
-    // Continue from offset
-    uint64_t remaining = total_size > offset ? total_size - offset : 0;
-    if (remaining == 0) {
+    uint64_t actual_size = file_size(tmp_path);
+    if (actual_size != offset) {
+        send_line(sockfd_, "ERR 409 Offset mismatch");
+        return true;
+    }
+
+    if (offset >= total_size) {
         server_.db().delete_transfer_session(session_id, err);
         send_line(sockfd_, "OK 200 Upload already completed");
         return true;
     }
-    
-    send_line(sockfd_, "OK 100 Continue from " + to_string(offset) + " size " + to_string(remaining));
-    
-    // Open file in append mode
-    ofstream ofs(target_path, ios::binary | ios::app);
+
+    uint64_t remaining = total_size - offset;
+
+    send_line(sockfd_,
+        "OK 100 Continue from " +
+        to_string(offset) +
+        " size " +
+        to_string(remaining));
+
+    ofstream ofs(tmp_path, ios::binary | ios::app);
     if (!ofs) {
-        send_line(sockfd_, "ERR 500 Cannot open file");
+        send_line(sockfd_, "ERR 500 Cannot open temp file");
         return true;
     }
-    
+
     const size_t BUF_SIZE = 64 * 1024;
     vector<char> buf(BUF_SIZE);
     uint64_t received = 0;
-    
+
     while (received < remaining) {
-        size_t chunk = (remaining - received) > BUF_SIZE ? BUF_SIZE : (size_t)(remaining - received);
+        size_t chunk =
+            (remaining - received > BUF_SIZE)
+            ? BUF_SIZE
+            : (size_t)(remaining - received);
+
         if (!recv_exact(sockfd_, buf.data(), chunk)) {
-            // Update session on disconnect
-            server_.db().update_transfer_session(session_id, offset + received, err);
+            // 🔥 client rớt → update offset
+            server_.db().update_transfer_session(
+                session_id,
+                offset + received,
+                err);
             return false;
         }
+
         ofs.write(buf.data(), (streamsize)chunk);
         if (!ofs) {
             send_line(sockfd_, "ERR 500 Write error");
             return true;
         }
+
         received += chunk;
-        offset += chunk;
         server_.add_bytes_in(chunk);
-        
-        // Update progress periodically
-        if (received % (BUF_SIZE * 10) == 0) {
-            server_.db().update_transfer_session(session_id, offset, err);
-        }
     }
-    
+
     ofs.close();
+
+    // ✅ Hoàn tất
+    ::rename(tmp_path.c_str(), full_path.c_str());
     server_.db().delete_transfer_session(session_id, err);
-    
-    if (target_path == tmp_path) {
-        ::rename(tmp_path.c_str(), full_path.c_str());
-    }
+
     uint64_t final_size = file_size(full_path);
+    server_.db().upsert_file_entry(
+        user_id_, rel_path, final_size, false, err);
 
-    // Calculate delta from previous stored size (if any)
-    uint64_t prev_size = 0;
-    bool is_folder = false;
-    bool is_deleted = false;
-    int prev_file_id;
-    if (server_.db().get_file_entry(user_id_, rel_path, prev_file_id, prev_size, is_folder, is_deleted, err) && !is_deleted) {
-        // prev_size loaded
-    } else {
-        prev_size = 0;
-    }
+    server_.logger().log(
+        username_, "CONTINUE_UPLOAD completed " + rel_path);
 
-    int64_t delta = static_cast<int64_t>(final_size) - static_cast<int64_t>(prev_size);
-    server_.quota_mgr().adjust_usage(username_, delta);
-    uint64_t used = server_.quota_mgr().used(username_);
-    server_.db().update_used_bytes(user_id_, used, err);
-    server_.db().upsert_file_entry(user_id_, rel_path, final_size, false, err);
-    
-    server_.logger().log(username_, "CONTINUE_UPLOAD completed " + rel_path);
     send_line(sockfd_, "OK 200 Upload completed");
     return true;
 }
+
 
 bool ClientSession::cmd_pause_download(const vector<string> &tokens) {
     if (tokens.size() < 2) {
