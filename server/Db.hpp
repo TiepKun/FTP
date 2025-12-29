@@ -45,7 +45,7 @@ public:
                                    string &err) = 0;
 
     virtual bool list_files(int owner_id, string &paths, string &err) = 0;
-    virtual bool list_shared_files(int user_id, string &paths, string &err) = 0;
+    virtual bool list_shared_files(int user_id, string &paths, string &err) = 0; // format: path|size|is_folder|owner|perm_read|perm_download|perm_write
 
     // File operations
     virtual bool delete_file_entry(int owner_id, const string &path, string &err) = 0;
@@ -59,7 +59,10 @@ public:
     virtual bool check_permission(int file_id, int user_id, bool &can_view, bool &can_download, bool &can_edit, string &err) = 0;
     virtual bool set_permission(int file_id, int grantee_id, bool can_view, bool can_download, bool can_edit, string &err) = 0;
     virtual bool get_file_id_by_path(int owner_id, const string &path, int &file_id, string &err) = 0;
-    virtual bool find_shared_file(const string &path, int grantee_id, int &file_id, int &owner_id, string &owner_username, string &err) = 0;
+    // Find a shared file (direct or via ancestor folder share). Returns the permission source file_id (possibly a folder),
+    // along with owner info.
+    virtual bool find_shared_file(const string &path, int grantee_id, int &perm_file_id, int &owner_id, string &owner_username, string &err) = 0;
+    virtual bool list_file_acl(int owner_id, int file_id, string &rows, string &err) = 0; // rows: username|view|download|edit
     virtual bool list_deleted_files(int owner_id, string &rows, string &err) = 0;
 
     // Transfer sessions (pause/continue)

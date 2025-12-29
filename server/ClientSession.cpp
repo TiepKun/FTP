@@ -118,6 +118,7 @@ bool ClientSession::handle_command(const string &line) {
     // Permissions
     if (cmd == "SET_PERMISSION") return cmd_set_permission(tokens);
     if (cmd == "CHECK_PERMISSION") return cmd_check_permission(tokens);
+    if (cmd == "LIST_ACL") return cmd_list_acl(tokens);
     
     // Unzip
     if (cmd == "UNZIP")     return cmd_unzip(tokens);
@@ -599,54 +600,38 @@ bool ClientSession::cmd_list_db(const vector<string> &tokens) {
         return true;
     }
 
+    // Build combined list with ownership + permissions:
+    // path|size|is_folder|owner|can_view|can_download|can_edit
+    vector<string> lines;
+    string line;
+    stringstream ss_owned(paths);
+    while (getline(ss_owned, line)) {
+        if (line.empty()) continue;
+        size_t p1 = line.find('|');
+        size_t p2 = line.find('|', p1 + 1);
+        if (p1 == string::npos || p2 == string::npos) continue;
+        string path = line.substr(0, p1);
+        string size_str = line.substr(p1 + 1, p2 - p1 - 1);
+        string folder_flag = line.substr(p2 + 1);
+        lines.push_back(path + "|" + size_str + "|" + folder_flag + "|" + username_ + "|1|1|1");
+    }
+
     string shared;
     server_.db().list_shared_files(user_id_, shared, err);
-    if (!shared.empty()) paths += shared;
-
-    // Format: each line is "path|size|is_folder"
-    // Parse and reformat if needed
-    stringstream ss_in(paths);
-    stringstream ss_out;
-    string line;
-    
-    while (getline(ss_in, line)) {
+    stringstream ss_shared(shared);
+    while (getline(ss_shared, line)) {
         if (line.empty()) continue;
-        
-        // line format could be "path|size|folder" already from DB
-        // or just "path" - need to query DB for details
-        size_t pipe1 = line.find('|');
-        string path;
-        uint64_t size_bytes = 0;
-        bool is_folder = false;
-        
-        if (pipe1 != string::npos) {
-            // Already has format
-            path = line.substr(0, pipe1);
-            size_t pipe2 = line.find('|', pipe1 + 1);
-            if (pipe2 != string::npos) {
-                size_bytes = stoull(line.substr(pipe1 + 1, pipe2 - pipe1 - 1));
-                is_folder = line.substr(pipe2 + 1) == "1";
-            }
-            ss_out << path << "|" << size_bytes << "|" << (is_folder ? "1" : "0") << "\n";
-        } else {
-            // Just path, query DB
-            path = line;
-            int file_id;
-            uint64_t meta_size;
-            bool is_deleted;
-            if (server_.db().get_file_entry(user_id_, path, file_id, meta_size, is_folder, is_deleted, err)) {
-                size_bytes = meta_size;
-            }
-            ss_out << path << "|" << size_bytes << "|" << (is_folder ? "1" : "0") << "\n";
-        }
+        lines.push_back(line);
     }
-    
-    string formatted = ss_out.str();
-    int count = 0;
-    for (char c : formatted) if (c == '\n') count++;
 
-    send_line(sockfd_, "OK 200 " + to_string(count));
-    send_all(sockfd_, formatted.data(), formatted.size());
+    send_line(sockfd_, "OK 200 " + to_string((int)lines.size()));
+    string out;
+    for (auto &l : lines) {
+        out += l + "\n";
+    }
+    if (!out.empty()) {
+        send_all(sockfd_, out.data(), out.size());
+    }
     return true;
 }
 
@@ -693,6 +678,7 @@ bool ClientSession::check_file_permission(const string &path,
     uint64_t size_bytes = 0;
     bool is_folder = false;
     bool is_deleted = false;
+    int perm_file_id = 0;
 
     // First try owned file
     if (server_.db().get_file_entry(user_id_, path, file_id_out, size_bytes, is_folder, is_deleted, err) && !is_deleted) {
@@ -702,7 +688,7 @@ bool ClientSession::check_file_permission(const string &path,
         // Try shared file
         int owner_id = 0;
         string owner_user;
-        if (!server_.db().find_shared_file(path, user_id_, file_id_out, owner_id, owner_user, err)) {
+        if (!server_.db().find_shared_file(path, user_id_, perm_file_id, owner_id, owner_user, err)) {
             return false;
         }
         owner_id_out = owner_id;
@@ -713,7 +699,8 @@ bool ClientSession::check_file_permission(const string &path,
     }
 
     bool can_view = false, can_download = false, can_edit = false;
-    if (!server_.db().check_permission(file_id_out, user_id_, can_view, can_download, can_edit, err)) {
+    int perm_id_to_check = (owner_id_out == user_id_) ? file_id_out : (perm_file_id ? perm_file_id : file_id_out);
+    if (!server_.db().check_permission(perm_id_to_check, user_id_, can_view, can_download, can_edit, err)) {
         return false;
     }
 
@@ -1331,16 +1318,34 @@ bool ClientSession::cmd_set_permission(const vector<string> &tokens) {
         return true;
     }
     
+    // tokens: CMD path(with spaces) target view download edit
+    if (tokens.size() < 6) {
+        send_line(sockfd_, "ERR 400 Usage: SET_PERMISSION <path> <target_user> <view> <download> <edit>");
+        return true;
+    }
+    size_t target_idx = tokens.size() - 4;
+    if (target_idx < 1) {
+        send_line(sockfd_, "ERR 400 Usage: SET_PERMISSION <path> <target_user> <view> <download> <edit>");
+        return true;
+    }
     string rel_path = tokens[1];
-    string target_user = tokens[2];
-    bool can_view = tokens[3] == "1" || tokens[3] == "true";
-    bool can_download = tokens[4] == "1" || tokens[4] == "true";
-    bool can_edit = tokens.size() >= 6 && (tokens[5] == "1" || tokens[5] == "true");
-    
+    for (size_t i = 2; i < target_idx; ++i) {
+        rel_path += " " + tokens[i];
+    }
+    string target_user = tokens[target_idx];
+    string view_tok = tokens[target_idx + 1];
+    string dl_tok = tokens[target_idx + 2];
+    string edit_tok = tokens[target_idx + 3];
+    bool can_view = view_tok == "1" || view_tok == "true";
+    bool can_download = dl_tok == "1" || dl_tok == "true";
+    bool can_edit = edit_tok == "1" || edit_tok == "true";
+
     // Get file_id
     string err;
     int file_id;
-    if (!server_.db().get_file_id_by_path(user_id_, rel_path, file_id, err)) {
+    uint64_t sz = 0;
+    bool is_folder = false, is_deleted = false;
+    if (!server_.db().get_file_entry(user_id_, rel_path, file_id, sz, is_folder, is_deleted, err) || is_deleted) {
         send_line(sockfd_, "ERR 404 File not found");
         return true;
     }
@@ -1352,9 +1357,46 @@ bool ClientSession::cmd_set_permission(const vector<string> &tokens) {
         return true;
     }
     
-    if (!server_.db().set_permission(file_id, target_rec.id, can_view, can_download, can_edit, err)) {
-        send_line(sockfd_, "ERR 500 Cannot set permission: " + err);
+    auto apply_perm = [&](int fid) -> bool {
+        if (!server_.db().set_permission(fid, target_rec.id, can_view, can_download, can_edit, err)) {
+            return false;
+        }
         return true;
+    };
+
+    if (!is_folder) {
+        if (!apply_perm(file_id)) {
+            send_line(sockfd_, "ERR 500 Cannot set permission: " + err);
+            return true;
+        }
+    } else {
+        // Apply to folder and all descendants to keep role consistent
+        std::string paths_blob;
+        if (!server_.db().list_files(user_id_, paths_blob, err)) {
+            send_line(sockfd_, "ERR 500 DB error: " + err);
+            return true;
+        }
+        // Always include the folder itself
+        if (!apply_perm(file_id)) {
+            send_line(sockfd_, "ERR 500 Cannot set permission: " + err);
+            return true;
+        }
+        std::string line;
+        std::stringstream ss(paths_blob);
+        std::string prefix = rel_path;
+        if (!prefix.empty() && prefix.back() != '/') prefix += "/";
+        while (std::getline(ss, line)) {
+            if (line.empty()) continue;
+            size_t p1 = line.find('|');
+            if (p1 == std::string::npos) continue;
+            std::string pth = line.substr(0, p1);
+            if (pth == rel_path) continue;
+            if (pth.rfind(prefix, 0) != 0) continue;
+            int child_id;
+            if (server_.db().get_file_id_by_path(user_id_, pth, child_id, err)) {
+                apply_perm(child_id);
+            }
+        }
     }
     
     server_.logger().log(username_, "SET_PERMISSION " + rel_path + " for " + target_user);
@@ -1386,6 +1428,37 @@ bool ClientSession::cmd_check_permission(const vector<string> &tokens) {
                  " download=" + string(can_download ? "1" : "0") +
                  " edit=" + string(can_edit ? "1" : "0");
     send_line(sockfd_, msg);
+    return true;
+}
+
+bool ClientSession::cmd_list_acl(const vector<string> &tokens) {
+    if (tokens.size() < 2) {
+        send_line(sockfd_, "ERR 400 Usage: LIST_ACL <path>");
+        return true;
+    }
+    string rel_path = tokens[1];
+    for (size_t i = 2; i < tokens.size(); ++i) {
+        rel_path += " " + tokens[i];
+    }
+
+    // Only owner can list ACL
+    string err;
+    int file_id;
+    if (!server_.db().get_file_id_by_path(user_id_, rel_path, file_id, err)) {
+        send_line(sockfd_, "ERR 404 File not found");
+        return true;
+    }
+
+    string rows;
+    if (!server_.db().list_file_acl(user_id_, file_id, rows, err)) {
+        send_line(sockfd_, "ERR 500 DB error: " + err);
+        return true;
+    }
+
+    int count = 0;
+    for (char c : rows) if (c == '\n') count++;
+    send_line(sockfd_, "OK 200 " + to_string(count));
+    if (!rows.empty()) send_all(sockfd_, rows.data(), rows.size());
     return true;
 }
 

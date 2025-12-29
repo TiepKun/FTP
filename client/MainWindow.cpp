@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <thread>
+#include <sstream>
 
 using namespace std;
 
@@ -54,6 +55,7 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     vbox_.pack_start(*hbox2, Gtk::PACK_SHRINK);
 
     Gtk::Box *hbox3 = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_HORIZONTAL));
+    actions_box_ = hbox3;
     entry_target_.set_placeholder_text("Target path (for rename/move/copy)");
     hbox3->pack_start(entry_target_, Gtk::PACK_EXPAND_WIDGET);
     Gtk::Button *btn_create_folder = Gtk::manage(new Gtk::Button("Create Folder"));
@@ -90,25 +92,46 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
 
 
     // ==== File list + editor side-by-side ====
-    file_list_store_ = Gtk::TreeStore::create(columns_);
-    file_list_view_.set_model(file_list_store_);
-    file_list_view_.append_column("File", columns_.name);
-    file_list_view_.append_column("Size (KB)", columns_.size);
+    file_list_store_owned_ = Gtk::TreeStore::create(columns_);
+    file_list_store_shared_ = Gtk::TreeStore::create(columns_);
 
+    file_list_view_owned_.set_model(file_list_store_owned_);
+    file_list_view_owned_.append_column("File", columns_.name);
+    file_list_view_owned_.append_column("Size (KB)", columns_.size);
 
-    file_list_view_.get_selection()->signal_changed().connect(
-        sigc::mem_fun(*this, &MainWindow::on_file_selected));
+    file_list_view_shared_.set_model(file_list_store_shared_);
+    file_list_view_shared_.append_column("File Shared", columns_.name);
+    file_list_view_shared_.append_column("Size (KB)", columns_.size);
 
-    Gtk::ScrolledWindow *sw_left = Gtk::manage(new Gtk::ScrolledWindow());
-    sw_left->set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
-    sw_left->add(file_list_view_);
+    file_list_view_owned_.get_selection()->signal_changed().connect(
+        sigc::mem_fun(*this, &MainWindow::on_owned_selection_changed));
+    file_list_view_shared_.get_selection()->signal_changed().connect(
+        sigc::mem_fun(*this, &MainWindow::on_shared_selection_changed));
+
+    Gtk::ScrolledWindow *sw_owned = Gtk::manage(new Gtk::ScrolledWindow());
+    sw_owned->set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+    sw_owned->add(file_list_view_owned_);
+
+    Gtk::ScrolledWindow *sw_shared = Gtk::manage(new Gtk::ScrolledWindow());
+    sw_shared->set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+    sw_shared->add(file_list_view_shared_);
+
+    Gtk::Box *left_box = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_VERTICAL));
+    Gtk::Label *lbl_my = Gtk::manage(new Gtk::Label("My Files"));
+    lbl_my->set_margin_bottom(2);
+    Gtk::Label *lbl_shared = Gtk::manage(new Gtk::Label("Shared Files"));
+    lbl_shared->set_margin_bottom(2);
+    left_box->pack_start(*lbl_my, Gtk::PACK_SHRINK);
+    left_box->pack_start(*sw_owned, Gtk::PACK_EXPAND_WIDGET);
+    left_box->pack_start(*lbl_shared, Gtk::PACK_SHRINK);
+    left_box->pack_start(*sw_shared, Gtk::PACK_EXPAND_WIDGET);
 
     Gtk::ScrolledWindow *sw_right = Gtk::manage(new Gtk::ScrolledWindow());
     sw_right->set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
     sw_right->add(text_view_);
 
     Gtk::Paned *paned = Gtk::manage(new Gtk::Paned(Gtk::ORIENTATION_HORIZONTAL));
-    paned->add1(*sw_left);
+    paned->add1(*left_box);
     paned->add2(*sw_right);
 
     vbox_.pack_start(*paned, Gtk::PACK_EXPAND_WIDGET);
@@ -147,9 +170,13 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
     btn_list_deleted->signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_list_deleted_clicked));
     Gtk::Button *btn_share = Gtk::manage(new Gtk::Button("Share"));
+    Gtk::Button *btn_change_role = Gtk::manage(new Gtk::Button("Change Role"));
     hbox3->pack_start(*btn_share, Gtk::PACK_SHRINK);
+    hbox3->pack_start(*btn_change_role, Gtk::PACK_SHRINK);
     btn_share->signal_clicked().connect(
         sigc::mem_fun(*this, &MainWindow::on_btn_share_clicked));
+    btn_change_role->signal_clicked().connect(
+        sigc::mem_fun(*this, &MainWindow::on_btn_change_role_clicked));
 
     show_all_children();
     refresh_file_list();     // load file list automatically
@@ -220,7 +247,6 @@ void MainWindow::on_btn_upload_clicked() {
         }
         lbl_status_.set_text("Folder uploaded: " + base_name);
         refresh_file_list();
-        expand_and_select(base_name);
         return;
     }
 
@@ -239,7 +265,6 @@ void MainWindow::on_btn_upload_clicked() {
         }
         lbl_status_.set_text("Folder uploaded: " + base_name);
         refresh_file_list();
-        expand_and_select(base_name);
         return;
     }
 
@@ -410,7 +435,7 @@ void MainWindow::on_btn_create_folder_clicked() {
         // Treat base as folder if it exists as folder in tree
         // Look up selected node flag
         bool found_folder = false;
-        auto sel = file_list_view_.get_selection();
+        auto sel = file_list_view_owned_.get_selection();
         if (sel) {
             auto it = sel->get_selected();
             if (it && (*it)[columns_.is_folder]) {
@@ -521,25 +546,39 @@ void MainWindow::refresh_file_list() {
         return;
     }
 
-    file_list_store_->clear();
-    latest_entries_.clear();
+    file_list_store_owned_->clear();
+    file_list_store_shared_->clear();
+    latest_entries_owned_.clear();
+    std::map<std::string, RoleInfo> shared_roles_new;
 
     string current;
     for (char c : paths) {
         if (c == '\n') {
             if (!current.empty()) {
-                // Parse: path|size_bytes|is_folder
-                size_t p1 = current.find('|');
-                size_t p2 = current.find('|', p1 + 1);
-                
-                if (p1 != string::npos && p2 != string::npos) {
-                    string path = current.substr(0, p1);
-                    string size_str = current.substr(p1 + 1, p2 - p1 - 1);
-                    string folder_flag = current.substr(p2 + 1);
-                    bool is_folder = (folder_flag == "1");
-                    
-                    latest_entries_.push_back({path, is_folder});
-                    add_path_to_tree(path, size_str, is_folder);
+                // Parse: path|size|is_folder|owner|can_view|can_download|can_edit
+                vector<string> tokens;
+                string tmp;
+                for (char cc : current) {
+                    if (cc == '|') { tokens.push_back(tmp); tmp.clear(); }
+                    else tmp.push_back(cc);
+                }
+                tokens.push_back(tmp);
+
+                if (tokens.size() >= 7) {
+                    string path = tokens[0];
+                    string size_str = tokens[1];
+                    bool is_folder = (tokens[2] == "1");
+                    string owner = tokens[3];
+                    bool can_download = (tokens[5] == "1");
+                    bool can_edit = (tokens[6] == "1");
+                    bool is_shared = (owner != username_);
+                    if (!is_shared) {
+                        latest_entries_owned_.push_back({path, is_folder, is_shared, can_download, can_edit});
+                        add_path_to_tree(path, size_str, is_folder, owner, is_shared, can_download, can_edit, file_list_store_owned_);
+                    } else {
+                        shared_roles_new[path] = {true, can_download, can_edit};
+                        add_path_to_tree(path, size_str, is_folder, owner, is_shared, can_download, can_edit, file_list_store_shared_);
+                    }
                 }
                 current.clear();
             }
@@ -549,19 +588,47 @@ void MainWindow::refresh_file_list() {
     }
     // Handle last line if no trailing newline
     if (!current.empty()) {
-        size_t p1 = current.find('|');
-        size_t p2 = current.find('|', p1 + 1);
-        if (p1 != string::npos && p2 != string::npos) {
-            string path = current.substr(0, p1);
-            string size_str = current.substr(p1 + 1, p2 - p1 - 1);
-            string folder_flag = current.substr(p2 + 1);
-            bool is_folder = (folder_flag == "1");
-            latest_entries_.push_back({path, is_folder});
-            add_path_to_tree(path, size_str, is_folder);
+        vector<string> tokens;
+        string tmp;
+        for (char cc : current) {
+            if (cc == '|') { tokens.push_back(tmp); tmp.clear(); }
+            else tmp.push_back(cc);
+        }
+        tokens.push_back(tmp);
+        if (tokens.size() >= 7) {
+            string path = tokens[0];
+            string size_str = tokens[1];
+            bool is_folder = (tokens[2] == "1");
+            string owner = tokens[3];
+            bool can_download = (tokens[5] == "1");
+            bool can_edit = (tokens[6] == "1");
+            bool is_shared = (owner != username_);
+            if (!is_shared) {
+                latest_entries_owned_.push_back({path, is_folder, is_shared, can_download, can_edit});
+                add_path_to_tree(path, size_str, is_folder, owner, is_shared, can_download, can_edit, file_list_store_owned_);
+            } else {
+                shared_roles_new[path] = {true, can_download, can_edit};
+                add_path_to_tree(path, size_str, is_folder, owner, is_shared, can_download, can_edit, file_list_store_shared_);
+            }
         }
     }
 
+    // Detect role changes for shared entries
+    for (auto &p : shared_roles_new) {
+        auto it = shared_roles_prev_.find(p.first);
+        if (it != shared_roles_prev_.end()) {
+            if (it->second.download != p.second.download || it->second.edit != p.second.edit || it->second.view != p.second.view) {
+                std::string old_role = it->second.edit ? "Edit" : (it->second.download ? "Download" : "View");
+                std::string new_role = p.second.edit ? "Edit" : (p.second.download ? "Download" : "View");
+                lbl_status_.set_text("Role updated for shared \"" + p.first + "\": " + old_role + " -> " + new_role);
+                break;
+            }
+        }
+    }
+    shared_roles_prev_ = std::move(shared_roles_new);
+
     lbl_status_.set_text("Loaded file list");
+    reset_selection_state();
 }
 
 void MainWindow::on_btn_refresh_clicked() {
@@ -569,19 +636,7 @@ void MainWindow::on_btn_refresh_clicked() {
 }
 
 void MainWindow::on_file_selected() {
-    auto sel = file_list_view_.get_selection();
-    if (!sel) return;
-
-    auto iter = sel->get_selected();
-    if (!iter) return;
-
-    Glib::ustring path_u = (*iter)[columns_.full_path];
-    string path = path_u.raw();
-
-    entry_path_.set_text(path);
-    lbl_status_.set_text("Selected: " + path);
-    // Prefill target with same path for convenience
-    entry_target_.set_text(path);
+    // Deprecated; use owned/shared handlers instead
 }
 
 
@@ -632,15 +687,27 @@ Gtk::TreeModel::iterator MainWindow::find_iter_by_path(const std::string &path, 
 }
 
 void MainWindow::expand_and_select(const std::string &path) {
-    auto it = find_iter_by_path(path, file_list_store_->children());
+    auto it = find_iter_by_path(path, file_list_store_owned_->children());
     if (!it) return;
-    Gtk::TreeModel::Path tree_path = file_list_store_->get_path(it);
-    file_list_view_.expand_to_path(tree_path);
-    file_list_view_.get_selection()->select(tree_path);
-    file_list_view_.scroll_to_row(tree_path);
+    Gtk::TreeModel::Path tree_path = file_list_store_owned_->get_path(it);
+    // Expand only parents (not the target) so folder contents stay collapsed until user opens.
+    if (tree_path.size() > 1) {
+        Gtk::TreeModel::Path parent_path = tree_path;
+        parent_path.up();
+        file_list_view_owned_.expand_to_path(parent_path);
+    }
+    file_list_view_owned_.get_selection()->select(tree_path);
+    file_list_view_owned_.scroll_to_row(tree_path);
 }
 
-void MainWindow::add_path_to_tree(const std::string &path, const std::string &size_str, bool is_folder) {
+void MainWindow::add_path_to_tree(const std::string &path,
+                                  const std::string &size_str,
+                                  bool is_folder,
+                                  const std::string &owner,
+                                  bool is_shared,
+                                  bool can_download,
+                                  bool can_edit,
+                                  Glib::RefPtr<Gtk::TreeStore> store) {
     
     // Convert bytes to KB
     double size_bytes = 0;
@@ -662,7 +729,7 @@ void MainWindow::add_path_to_tree(const std::string &path, const std::string &si
     if (parts.empty()) return;
 
     Gtk::TreeModel::iterator parent_iter;
-    Gtk::TreeModel::Children children = file_list_store_->children();
+    Gtk::TreeModel::Children children = store->children();
     std::string accumulated;
 
     for (size_t i = 0; i < parts.size(); ++i) {
@@ -680,10 +747,14 @@ void MainWindow::add_path_to_tree(const std::string &path, const std::string &si
         }
 
         if (!found) {
-            Gtk::TreeModel::Row row = *(file_list_store_->append(current_children));
+            Gtk::TreeModel::Row row = *(store->append(current_children));
             row[columns_.name] = parts[i];
             row[columns_.full_path] = accumulated;
             row[columns_.is_folder] = (i + 1 < parts.size()) ? true : is_folder;
+            row[columns_.owner] = owner;
+            row[columns_.is_shared] = is_shared;
+            row[columns_.can_download] = can_download;
+            row[columns_.can_edit] = can_edit;
             // Only set size on leaf node
             if (i + 1 == parts.size() && !is_folder) {
                 row[columns_.size] = buf;
@@ -696,6 +767,10 @@ void MainWindow::add_path_to_tree(const std::string &path, const std::string &si
             if (i + 1 == parts.size() && !is_folder) {
                 (*found)[columns_.size] = buf;
             }
+            (*found)[columns_.owner] = owner;
+            (*found)[columns_.is_shared] = is_shared;
+            (*found)[columns_.can_download] = can_download;
+            (*found)[columns_.can_edit] = can_edit;
         }
 
         parent_iter = found;
@@ -735,7 +810,7 @@ void MainWindow::upload_folder_recursive(const std::string &local_root,
 std::vector<std::string> MainWindow::collect_folder_paths() {
     std::vector<std::string> folders;
     // Only collect top-level folders (depth 1) that are not hidden/system.
-    auto children = file_list_store_->children();
+    auto children = file_list_store_owned_->children();
     for (auto iter = children.begin(); iter != children.end(); ++iter) {
         if (!(*iter)[columns_.is_folder]) continue;
         Glib::ustring fp = (*iter)[columns_.full_path];
@@ -788,7 +863,7 @@ void MainWindow::on_btn_share_clicked() {
     Gtk::Label lbl_path("Folder/File:");
     Gtk::ComboBoxText combo_path;
     combo_path.append(""); // require selection
-    for (auto &e : latest_entries_) {
+    for (auto &e : latest_entries_owned_) {
         combo_path.append(e.path);
     }
 
@@ -839,6 +914,122 @@ void MainWindow::on_btn_share_clicked() {
     lbl_status_.set_text("Shared " + sel_path + " with " + to_user + " (" + access + ")");
 }
 
+void MainWindow::on_btn_change_role_clicked() {
+    // Dialog for picking owned path and grantee
+    Gtk::Dialog dlg("Change Role", *this, true);
+    dlg.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
+    dlg.add_button("_Apply", Gtk::RESPONSE_OK);
+
+    Gtk::Grid grid;
+    grid.set_row_spacing(6);
+    grid.set_column_spacing(6);
+
+    Gtk::Label lbl_path("Folder/File:");
+    Gtk::ComboBoxText combo_path;
+    combo_path.append("");
+    for (auto &e : latest_entries_owned_) combo_path.append(e.path);
+    combo_path.set_active(0);
+
+    Gtk::Label lbl_user("User:");
+    Gtk::ComboBoxText combo_user;
+
+    Gtk::Label lbl_role("Role:");
+    Gtk::ComboBoxText combo_role;
+    combo_role.append("View");
+    combo_role.append("Download");
+    combo_role.append("Edit");
+    combo_role.set_active(0);
+
+    grid.attach(lbl_path, 0, 0, 1, 1);
+    grid.attach(combo_path, 1, 0, 2, 1);
+    grid.attach(lbl_user, 0, 1, 1, 1);
+    grid.attach(combo_user, 1, 1, 2, 1);
+    grid.attach(lbl_role, 0, 2, 1, 1);
+    grid.attach(combo_role, 1, 2, 2, 1);
+    dlg.get_content_area()->pack_start(grid);
+    dlg.show_all_children();
+
+    // Load ACL when path changes
+    combo_path.signal_changed().connect([this, &combo_path, &combo_user, &combo_role]() {
+        combo_user.remove_all();
+        combo_role.set_active(0);
+        std::string path = combo_path.get_active_text();
+        if (path.empty()) return;
+        std::string rows, err;
+        if (!client_.list_acl(path, rows, err)) {
+            lbl_status_.set_text("Load ACL failed: " + err);
+            return;
+        }
+        std::istringstream ss(rows);
+        std::string line;
+        while (std::getline(ss, line)) {
+            if (line.empty()) continue;
+            combo_user.append(line);
+        }
+        combo_user.set_active(0);
+        if (combo_user.get_active_row_number() >= 0) {
+            std::string val = combo_user.get_active_text();
+            std::vector<std::string> parts;
+            std::string cur;
+            for (char c : val) {
+                if (c == '|') { parts.push_back(cur); cur.clear(); }
+                else cur.push_back(c);
+            }
+            parts.push_back(cur);
+            if (parts.size() >= 4) {
+                bool dv = parts[2] == "1";
+                bool de = parts[3] == "1";
+                if (de) combo_role.set_active_text("Edit");
+                else if (dv) combo_role.set_active_text("Download");
+                else combo_role.set_active_text("View");
+            }
+        }
+    });
+
+    if (dlg.run() != Gtk::RESPONSE_OK) {
+        lbl_status_.set_text("Change role canceled");
+        return;
+    }
+
+    std::string path = combo_path.get_active_text();
+    std::string user_row = combo_user.get_active_text();
+    if (path.empty() || user_row.empty()) {
+        lbl_status_.set_text("Select path and user");
+        return;
+    }
+
+    // Parse user_row: username|v|d|e
+    std::vector<std::string> parts;
+    std::string cur;
+    for (char c : user_row) {
+        if (c == '|') { parts.push_back(cur); cur.clear(); }
+        else cur.push_back(c);
+    }
+    parts.push_back(cur);
+    if (parts.size() < 4) {
+        lbl_status_.set_text("Invalid ACL row");
+        return;
+    }
+    std::string username = parts[0];
+    bool can_view = parts[1] == "1";
+    bool can_download = parts[2] == "1";
+    bool can_edit = parts[3] == "1";
+
+    std::string role = combo_role.get_active_text();
+    if (role == "View") { can_view = true; can_download = false; can_edit = false; }
+    else if (role == "Download") { can_view = true; can_download = true; can_edit = false; }
+    else if (role == "Edit") { can_view = true; can_download = true; can_edit = true; }
+
+    std::string err;
+    if (!client_.set_permission(path, username, can_view, can_download, can_edit, err)) {
+        lbl_status_.set_text("Change role failed: " + err);
+        return;
+    }
+
+    std::string new_role = can_edit ? "Edit" : (can_download ? "Download" : "View");
+    lbl_status_.set_text("Role updated for " + username + " -> " + new_role);
+    refresh_file_list();
+}
 bool MainWindow::on_upload_progress_tick() {
     if (!uploading_) {
         progress_upload_.set_fraction(0.0);
@@ -856,4 +1047,77 @@ bool MainWindow::on_upload_progress_tick() {
     progress_upload_.set_text(std::to_string(percent) + "%");
 
     return true;
+}
+
+void MainWindow::on_owned_selection_changed() {
+    auto sel = file_list_view_owned_.get_selection();
+    if (!sel) return;
+    auto iter = sel->get_selected();
+    if (!iter) return;
+
+    Glib::ustring path_u = (*iter)[columns_.full_path];
+    string path = path_u.raw();
+    entry_path_.set_text(path);
+    entry_target_.set_text(path);
+    lbl_status_.set_text("Selected: " + path);
+    current_is_shared_ = false;
+    current_can_download_ = true;
+    current_can_edit_ = true;
+    text_view_.set_editable(true);
+    update_action_sensitivity(false, true, true);
+}
+
+void MainWindow::on_shared_selection_changed() {
+    auto sel = file_list_view_shared_.get_selection();
+    if (!sel) return;
+    auto iter = sel->get_selected();
+    if (!iter) return;
+
+    Glib::ustring path_u = (*iter)[columns_.full_path];
+    string path = path_u.raw();
+    bool can_download = (*iter)[columns_.can_download];
+    bool can_edit = (*iter)[columns_.can_edit];
+    Glib::ustring owner_u = (*iter)[columns_.owner];
+    string owner = owner_u.raw();
+
+    entry_path_.set_text(path);
+    entry_target_.set_text(""); // avoid accidental rename/move using stale path
+    lbl_status_.set_text("Shared " + path + " from " + owner + (can_edit ? " (Edit)" : (can_download ? " (Download)" : " (View)")));
+
+    current_is_shared_ = true;
+    current_can_download_ = can_download;
+    current_can_edit_ = can_edit;
+    text_view_.set_editable(can_edit);
+    update_action_sensitivity(true, can_download, can_edit);
+}
+
+void MainWindow::update_action_sensitivity(bool is_shared, bool can_download, bool can_edit) {
+    // Top-level actions
+    btn_upload_.set_sensitive(!is_shared); // uploads only to own area
+    btn_save_.set_sensitive(!is_shared || can_edit);
+    btn_load_.set_sensitive(true); // view is allowed if listed
+    btn_download_.set_sensitive(!is_shared || can_download);
+
+    // File operations bar
+    bool allow_full_ops = !is_shared; // keep destructive ops to owner only
+    btn_pause_up_.set_sensitive(!is_shared);
+    btn_resume_up_.set_sensitive(!is_shared);
+    btn_pause_down_.set_sensitive(!is_shared || can_download);
+    btn_resume_down_.set_sensitive(!is_shared || can_download);
+    btn_unzip_.set_sensitive(!is_shared);
+
+    // Disable whole action bar for shared items to avoid destructive ops (server only supports owner).
+    if (actions_box_) {
+        for (auto *child : actions_box_->get_children()) {
+            if (auto widget = dynamic_cast<Gtk::Widget*>(child)) widget->set_sensitive(!is_shared);
+        }
+    }
+}
+
+void MainWindow::reset_selection_state() {
+    current_is_shared_ = false;
+    current_can_download_ = true;
+    current_can_edit_ = true;
+    text_view_.set_editable(true);
+    update_action_sensitivity(false, true, true);
 }

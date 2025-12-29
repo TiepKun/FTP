@@ -390,10 +390,34 @@ bool DbSqlite::list_files(int owner_id, string &paths, string &err) {
 bool DbSqlite::list_shared_files(int user_id, string &paths, string &err) {
     paths.clear();
     const char *sql =
-        "SELECT f.path, f.size_bytes, f.is_folder "
-        "FROM file_entry f "
-        "JOIN file_acl a ON a.file_id = f.id "
-        "WHERE a.grantee_id = ? AND f.is_deleted = 0 AND a.perm_read = 1;";
+        "WITH direct AS ("
+        "  SELECT f.id, f.owner_id, f.path, f.size_bytes, f.is_folder, u.username AS owner, "
+        "         a.perm_read, a.perm_download, a.perm_write "
+        "  FROM file_entry f "
+        "  JOIN file_acl a ON a.file_id = f.id "
+        "  JOIN app_user u ON u.id = f.owner_id "
+        "  WHERE a.grantee_id = ? AND f.is_deleted = 0 AND a.perm_read = 1"
+        "), "
+        "folder_shared AS (SELECT * FROM direct WHERE is_folder = 1), "
+        "expanded AS ("
+        "  SELECT f.id, f.owner_id, f.path, f.size_bytes, f.is_folder, u.username AS owner, "
+        "         fs.perm_read, fs.perm_download, fs.perm_write "
+        "  FROM file_entry f "
+        "  JOIN folder_shared fs ON f.owner_id = fs.owner_id "
+        "  JOIN app_user u ON u.id = f.owner_id "
+        "  WHERE f.is_deleted = 0 AND fs.perm_read = 1 "
+        "    AND (f.path = fs.path OR f.path LIKE fs.path || '/%')"
+        "), "
+        "unioned AS ("
+        "  SELECT * FROM direct "
+        "  UNION ALL "
+        "  SELECT e.* FROM expanded e "
+        "  WHERE NOT EXISTS (SELECT 1 FROM direct d WHERE d.id = e.id)"
+        ") "
+        "SELECT path, size_bytes, is_folder, owner, "
+        "       MAX(perm_read), MAX(perm_download), MAX(perm_write) "
+        "FROM unioned "
+        "GROUP BY path, size_bytes, is_folder, owner;";
 
     sqlite3_stmt *stmt = nullptr;
     int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
@@ -404,8 +428,15 @@ bool DbSqlite::list_shared_files(int user_id, string &paths, string &err) {
         const char *p = (const char*)sqlite3_column_text(stmt, 0);
         uint64_t size = sqlite3_column_int64(stmt, 1);
         int is_folder = sqlite3_column_int(stmt, 2);
+        const char *owner = (const char*)sqlite3_column_text(stmt, 3);
+        int perm_read = sqlite3_column_int(stmt, 4);
+        int perm_download = sqlite3_column_int(stmt, 5);
+        int perm_write = sqlite3_column_int(stmt, 6);
         if (p) {
-            paths += string(p) + "|" + to_string(size) + "|" + to_string(is_folder) + "\n";
+            paths += string(p) + "|" + to_string(size) + "|" + to_string(is_folder) + "|" +
+                     (owner ? string(owner) : "") + "|" +
+                     to_string(perm_read) + "|" + to_string(perm_download) + "|" +
+                     to_string(perm_write) + "\n";
         }
     }
     if (rc != SQLITE_DONE) { err = sqlite3_errmsg(db_); sqlite3_finalize(stmt); return false; }
@@ -583,14 +614,17 @@ bool DbSqlite::get_file_id_by_path(int owner_id, const string &path, int &file_i
     return get_file_entry(owner_id, path, file_id, size_bytes, is_folder, is_deleted, err);
 }
 
-bool DbSqlite::find_shared_file(const string &path, int grantee_id, int &file_id, int &owner_id, string &owner_username, string &err) {
+bool DbSqlite::find_shared_file(const string &path, int grantee_id, int &perm_file_id, int &owner_id, string &owner_username, string &err) {
     const char *sql =
-        "SELECT f.id, f.owner_id, u.username "
+        "SELECT a.file_id, f.owner_id, u.username, folder.path "
         "FROM file_entry f "
-        "JOIN file_acl a ON a.file_id = f.id "
+        "JOIN file_entry folder ON folder.owner_id = f.owner_id AND folder.is_deleted = 0 "
+        "JOIN file_acl a ON a.file_id = folder.id "
         "JOIN app_user u ON u.id = f.owner_id "
-        "WHERE a.grantee_id = ? AND f.path = ? AND f.is_deleted = 0 "
-        "ORDER BY f.updated_at DESC LIMIT 1;";
+        "WHERE a.grantee_id = ? AND f.path = ? AND f.is_deleted = 0 AND a.perm_read = 1 "
+        "  AND (f.path = folder.path OR f.path LIKE folder.path || '/%') "
+        "ORDER BY LENGTH(folder.path) DESC "
+        "LIMIT 1;";
 
     sqlite3_stmt *stmt = nullptr;
     int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
@@ -604,7 +638,7 @@ bool DbSqlite::find_shared_file(const string &path, int grantee_id, int &file_id
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_ROW) {
-        file_id = sqlite3_column_int(stmt, 0);
+        perm_file_id = sqlite3_column_int(stmt, 0);
         owner_id = sqlite3_column_int(stmt, 1);
         const unsigned char *u = sqlite3_column_text(stmt, 2);
         if (u) owner_username = reinterpret_cast<const char*>(u);
@@ -737,6 +771,35 @@ bool DbSqlite::set_permission(int file_id, int grantee_id, bool can_view, bool c
         return false;
     }
 
+    sqlite3_finalize(stmt);
+    return true;
+}
+
+bool DbSqlite::list_file_acl(int owner_id, int file_id, string &rows, string &err) {
+    rows.clear();
+    const char *sql =
+        "SELECT u.username, a.perm_read, a.perm_download, a.perm_write "
+        "FROM file_acl a "
+        "JOIN app_user u ON u.id = a.grantee_id "
+        "JOIN file_entry f ON f.id = a.file_id "
+        "WHERE a.file_id = ? AND f.owner_id = ?;";
+
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) { err = sqlite3_errmsg(db_); return false; }
+    sqlite3_bind_int(stmt, 1, file_id);
+    sqlite3_bind_int(stmt, 2, owner_id);
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const char *user = (const char*)sqlite3_column_text(stmt, 0);
+        int vr = sqlite3_column_int(stmt, 1);
+        int vd = sqlite3_column_int(stmt, 2);
+        int vw = sqlite3_column_int(stmt, 3);
+        if (user) {
+            rows += string(user) + "|" + to_string(vr) + "|" + to_string(vd) + "|" + to_string(vw) + "\n";
+        }
+    }
+    if (rc != SQLITE_DONE) { err = sqlite3_errmsg(db_); sqlite3_finalize(stmt); return false; }
     sqlite3_finalize(stmt);
     return true;
 }

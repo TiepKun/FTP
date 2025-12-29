@@ -450,6 +450,23 @@ bool NetworkClient::set_permission(const string &path, const string &target_user
     err = line; return false;
 }
 
+bool NetworkClient::list_acl(const string &path, string &rows, string &err) {
+    rows.clear();
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    string cmd = "LIST_ACL " + path;
+    if (!send_line(sockfd_, cmd)) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    auto tok = split_tokens(line);
+    if (tok.size() < 3 || tok[0] != "OK" || tok[1] != "200") { err = line; return false; }
+    int count = stoi(tok[2]);
+    for (int i = 0; i < count; ++i) {
+        if (!recv_line(sockfd_, line)) { err = "Receive error"; return false; }
+        rows += line + "\n";
+    }
+    return true;
+}
+
 bool NetworkClient::list_files_db(string &paths, string &err) {
     paths.clear();
 

@@ -41,6 +41,7 @@ public:
     bool restore_remote(const string &path, string &err);
     bool list_deleted(string &rows, string &err);
     bool set_permission(const string &path, const string &target_user, bool can_view, bool can_download, bool can_edit, string &err);
+    bool list_acl(const string &path, string &rows, string &err);
     bool list_files_db(string &paths, string &err);
     bool send_raw_command(const string& cmd, string& out, string& err);
              

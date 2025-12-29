@@ -53,6 +53,7 @@ public:
     bool set_permission(int file_id, int grantee_id, bool can_view, bool can_download, bool can_edit, string &err) override;
     bool get_file_id_by_path(int owner_id, const string &path, int &file_id, string &err) override;
     bool find_shared_file(const string &path, int grantee_id, int &file_id, int &owner_id, string &owner_username, string &err) override;
+    bool list_file_acl(int owner_id, int file_id, string &rows, string &err) override;
     bool list_deleted_files(int owner_id, string &rows, string &err) override;
 
     // Transfer sessions

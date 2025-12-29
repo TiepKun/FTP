@@ -46,6 +46,7 @@ private:
     // Permissions
     bool cmd_set_permission(const vector<string> &tokens);
     bool cmd_check_permission(const vector<string> &tokens);
+    bool cmd_list_acl(const vector<string> &tokens);
 
     // Unzip
     bool cmd_unzip(const vector<string> &tokens);
