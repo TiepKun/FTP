@@ -1,5 +1,5 @@
-/Users/tiepnguyen/Downloads/IT4062/FTP/build/CMakeFiles/common.dir
-/Users/tiepnguyen/Downloads/IT4062/FTP/build/CMakeFiles/fileshare_server.dir
-/Users/tiepnguyen/Downloads/IT4062/FTP/build/CMakeFiles/fileshare_client.dir
-/Users/tiepnguyen/Downloads/IT4062/FTP/build/CMakeFiles/edit_cache.dir
-/Users/tiepnguyen/Downloads/IT4062/FTP/build/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build/CMakeFiles/common.dir
+/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build/CMakeFiles/fileshare_server.dir
+/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build/CMakeFiles/fileshare_client.dir
+/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/TumRoyal/Documents/GitHub/FTP/build/CMakeFiles/rebuild_cache.dir

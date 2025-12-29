@@ -46,9 +46,7 @@ CREATE TABLE IF NOT EXISTS file_acl (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     file_id     INTEGER NOT NULL,
     grantee_id  INTEGER NOT NULL,
-    perm_read   INTEGER DEFAULT 1,
-    perm_download INTEGER DEFAULT 1,
-    perm_write  INTEGER DEFAULT 0,
+    level       INTEGER DEFAULT 1,-- permission level: 0 = none, 1 = view, 2 = view+edit, 3 = view+edit+remove
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(file_id) REFERENCES file_entry(id) ON DELETE CASCADE,
     FOREIGN KEY(grantee_id) REFERENCES app_user(id) ON DELETE CASCADE,
@@ -134,13 +132,27 @@ CREATE INDEX IF NOT EXISTS idx_transfer_session_user_path
         }
     }
 
-    if (!has_column("file_acl", "perm_download")) {
-        if (!add_column_if_missing("file_acl", "perm_download INTEGER DEFAULT 1")) {
+    // Migrate legacy perm_* columns into new `level` column
+    if (!has_column("file_acl", "level")) {
+        if (!add_column_if_missing("file_acl", "level INTEGER DEFAULT 1")) {
             return false;
         }
-    }
-    if (!has_column("file_acl", "perm_write")) {
-        if (!add_column_if_missing("file_acl", "perm_write INTEGER DEFAULT 0")) {
+
+        // If legacy perm_* columns exist, derive `level` from them.
+        // Mapping: if perm_write=1 and perm_download=1 -> level=3
+        //          else if perm_write=1 -> level=2
+        //          else if perm_read=1 -> level=1
+        //          else -> level=0
+        const char *sql_migrate_level =
+            "UPDATE file_acl SET level = CASE "
+            "WHEN perm_write = 1 AND perm_download = 1 THEN 3 "
+            "WHEN perm_write = 1 THEN 2 "
+            "WHEN perm_read = 1 THEN 1 "
+            "ELSE 0 END;";
+        rc = sqlite3_exec(db_, sql_migrate_level, nullptr, nullptr, &errmsg);
+        if (rc != SQLITE_OK) {
+            err = errmsg ? errmsg : "Unknown SQLite error";
+            if (errmsg) sqlite3_free(errmsg);
             return false;
         }
     }
@@ -368,10 +380,10 @@ bool DbSqlite::list_files(int owner_id, string &paths, string &err) {
 bool DbSqlite::list_shared_files(int user_id, string &paths, string &err) {
     paths.clear();
     const char *sql =
-        "SELECT f.path, f.size_bytes, f.is_folder "
+        "SELECT f.path, f.size_bytes, f.is_folder, a.level "
         "FROM file_entry f "
         "JOIN file_acl a ON a.file_id = f.id "
-        "WHERE a.grantee_id = ? AND f.is_deleted = 0 AND a.perm_read = 1;";
+        "WHERE a.grantee_id = ? AND f.is_deleted = 0 AND a.level >= 1;";
 
     sqlite3_stmt *stmt = nullptr;
     int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
@@ -382,8 +394,9 @@ bool DbSqlite::list_shared_files(int user_id, string &paths, string &err) {
         const char *p = (const char*)sqlite3_column_text(stmt, 0);
         uint64_t size = sqlite3_column_int64(stmt, 1);
         int is_folder = sqlite3_column_int(stmt, 2);
+        int level = sqlite3_column_int(stmt, 3);
         if (p) {
-            paths += string(p) + "|" + to_string(size) + "|" + to_string(is_folder) + "\n";
+            paths += string(p) + "|" + to_string(size) + "|" + to_string(is_folder) + "|" + to_string(level) + "\n";
         }
     }
     if (rc != SQLITE_DONE) { err = sqlite3_errmsg(db_); sqlite3_finalize(stmt); return false; }
@@ -496,8 +509,8 @@ bool DbSqlite::copy_file_entry(int owner_id, const string &src_path, const strin
 
     // Copy permissions if any
     const char *sql_acl =
-        "INSERT INTO file_acl (file_id, grantee_id, perm_read, perm_download, perm_write) "
-        "SELECT (SELECT id FROM file_entry WHERE owner_id = ? AND path = ?), grantee_id, perm_read, perm_download, perm_write "
+        "INSERT INTO file_acl (file_id, grantee_id, level) "
+        "SELECT (SELECT id FROM file_entry WHERE owner_id = ? AND path = ?), grantee_id, level "
         "FROM file_acl WHERE file_id = ?;";
 
     sqlite3_stmt *stmt = nullptr;
@@ -657,7 +670,7 @@ bool DbSqlite::check_permission(int file_id, int user_id, bool &can_view, bool &
 
     // Check ACL
     const char *sql_acl =
-        "SELECT perm_read, perm_download, perm_write FROM file_acl "
+        "SELECT level FROM file_acl "
         "WHERE file_id = ? AND grantee_id = ?;";
 
     rc = sqlite3_prepare_v2(db_, sql_acl, -1, &stmt, nullptr);
@@ -671,9 +684,10 @@ bool DbSqlite::check_permission(int file_id, int user_id, bool &can_view, bool &
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_ROW) {
-        can_view = sqlite3_column_int(stmt, 0) != 0;
-        can_download = sqlite3_column_int(stmt, 1) != 0;
-        can_edit = sqlite3_column_int(stmt, 2) != 0;
+        int lvl = sqlite3_column_int(stmt, 0);
+        can_view = lvl >= 1;
+        can_download = lvl >= 1;
+        can_edit = lvl >= 2;
         sqlite3_finalize(stmt);
         return true;
     } else {
@@ -688,12 +702,10 @@ bool DbSqlite::check_permission(int file_id, int user_id, bool &can_view, bool &
 
 bool DbSqlite::set_permission(int file_id, int grantee_id, bool can_view, bool can_download, bool can_edit, string &err) {
     const char *sql =
-        "INSERT INTO file_acl (file_id, grantee_id, perm_read, perm_download, perm_write) "
-        "VALUES (?, ?, ?, ?, ?) "
+        "INSERT INTO file_acl (file_id, grantee_id, level) "
+        "VALUES (?, ?, ?) "
         "ON CONFLICT(file_id, grantee_id) DO UPDATE SET "
-        "perm_read = excluded.perm_read, "
-        "perm_download = excluded.perm_download, "
-        "perm_write = excluded.perm_write;";
+        "level = excluded.level;";
 
     sqlite3_stmt *stmt = nullptr;
     int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
@@ -704,9 +716,11 @@ bool DbSqlite::set_permission(int file_id, int grantee_id, bool can_view, bool c
 
     sqlite3_bind_int(stmt, 1, file_id);
     sqlite3_bind_int(stmt, 2, grantee_id);
-    sqlite3_bind_int(stmt, 3, can_view ? 1 : 0);
-    sqlite3_bind_int(stmt, 4, can_download ? 1 : 0);
-    sqlite3_bind_int(stmt, 5, can_edit ? 1 : 0);
+    int level = 0;
+    if (can_edit && can_download) level = 3;
+    else if (can_edit) level = 2;
+    else if (can_view) level = 1;
+    sqlite3_bind_int(stmt, 3, level);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {

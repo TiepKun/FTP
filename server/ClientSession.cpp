@@ -14,6 +14,7 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 #ifdef HAVE_LIBZIP
 #include <zip.h>
 #endif
@@ -584,61 +585,84 @@ bool ClientSession::cmd_stats() {
 
 bool ClientSession::cmd_list_db(const vector<string> &tokens) {
     string err;
-    string paths;
+    // Build a map of path -> (size, is_folder, is_owner, level)
+    unordered_map<string, tuple<uint64_t, bool, int, int>> m;
 
-    if (!server_.db().list_files(user_id_, paths, err)) {
+    string owner_list;
+    if (!server_.db().list_files(user_id_, owner_list, err)) {
         send_line(sockfd_, "ERR 500 DB error: " + err);
         return true;
     }
 
-    string shared;
-    server_.db().list_shared_files(user_id_, shared, err);
-    if (!shared.empty()) paths += shared;
-
-    // Format: each line is "path|size|is_folder"
-    // Parse and reformat if needed
-    stringstream ss_in(paths);
-    stringstream ss_out;
+    // Owner files: list_files returns lines "path|size|is_folder"
+    stringstream ss_owner(owner_list);
     string line;
-    
-    while (getline(ss_in, line)) {
+    while (getline(ss_owner, line)) {
         if (line.empty()) continue;
-        
-        // line format could be "path|size|folder" already from DB
-        // or just "path" - need to query DB for details
-        size_t pipe1 = line.find('|');
-        string path;
+        size_t p1 = line.find('|');
+        if (p1 == string::npos) continue;
+        size_t p2 = line.find('|', p1 + 1);
+        string path = line.substr(0, p1);
         uint64_t size_bytes = 0;
         bool is_folder = false;
-        
-        if (pipe1 != string::npos) {
-            // Already has format
-            path = line.substr(0, pipe1);
-            size_t pipe2 = line.find('|', pipe1 + 1);
-            if (pipe2 != string::npos) {
-                size_bytes = stoull(line.substr(pipe1 + 1, pipe2 - pipe1 - 1));
-                is_folder = line.substr(pipe2 + 1) == "1";
+        if (p2 != string::npos) {
+            size_bytes = stoull(line.substr(p1 + 1, p2 - p1 - 1));
+            is_folder = line.substr(p2 + 1) == "1";
+        }
+        // owner has full permissions
+        m[path] = make_tuple(size_bytes, is_folder, 1, 3);
+    }
+
+    // Shared files: list_shared_files now returns "path|size|is_folder|level"
+    string shared;
+    server_.db().list_shared_files(user_id_, shared, err);
+    stringstream ss_shared(shared);
+    while (getline(ss_shared, line)) {
+        if (line.empty()) continue;
+        size_t p1 = line.find('|');
+        if (p1 == string::npos) continue;
+        size_t p2 = line.find('|', p1 + 1);
+        size_t p3 = p2 != string::npos ? line.find('|', p2 + 1) : string::npos;
+        string path = line.substr(0, p1);
+        uint64_t size_bytes = 0;
+        bool is_folder = false;
+        int level = 1;
+        if (p2 != string::npos) {
+            size_bytes = stoull(line.substr(p1 + 1, p2 - p1 - 1));
+            if (p3 != string::npos) {
+                is_folder = line.substr(p2 + 1, p3 - p2 - 1) == "1";
+                level = stoi(line.substr(p3 + 1));
+            } else {
+                is_folder = line.substr(p2 + 1) == "1";
             }
-            ss_out << path << "|" << size_bytes << "|" << (is_folder ? "1" : "0") << "\n";
+        }
+        // If already owner, keep owner entry (owner level 3). Otherwise add/merge shared.
+        auto it = m.find(path);
+        if (it == m.end()) {
+            m[path] = make_tuple(size_bytes, is_folder, 0, level);
         } else {
-            // Just path, query DB
-            path = line;
-            int file_id;
-            uint64_t meta_size;
-            bool is_deleted;
-            if (server_.db().get_file_entry(user_id_, path, file_id, meta_size, is_folder, is_deleted, err)) {
-                size_bytes = meta_size;
+            // If exists and is owner, keep owner. If existing not owner, prefer higher level.
+            uint64_t ex_size; bool ex_folder; int ex_owner; int ex_level;
+            tie(ex_size, ex_folder, ex_owner, ex_level) = it->second;
+            if (!ex_owner && level > ex_level) {
+                it->second = make_tuple(size_bytes, is_folder, 0, level);
             }
-            ss_out << path << "|" << size_bytes << "|" << (is_folder ? "1" : "0") << "\n";
         }
     }
-    
-    string formatted = ss_out.str();
-    int count = 0;
-    for (char c : formatted) if (c == '\n') count++;
 
+    // Emit the combined list
+    string out;
+    for (const auto &p : m) {
+        const string &path = p.first;
+        uint64_t size_bytes; bool is_folder; int is_owner; int level;
+        tie(size_bytes, is_folder, is_owner, level) = p.second;
+        out += path + "|" + to_string(size_bytes) + "|" + (is_folder ? "1" : "0") + "|" + to_string(is_owner) + "|" + to_string(level) + "\n";
+    }
+
+    int count = 0;
+    for (char c : out) if (c == '\n') count++;
     send_line(sockfd_, "OK 200 " + to_string(count));
-    send_all(sockfd_, formatted.data(), formatted.size());
+    send_all(sockfd_, out.data(), out.size());
     return true;
 }
 
@@ -1312,16 +1336,31 @@ bool ClientSession::cmd_continue_download(const vector<string> &tokens) {
 }
 
 bool ClientSession::cmd_set_permission(const vector<string> &tokens) {
-    if (tokens.size() < 5) {
-        send_line(sockfd_, "ERR 400 Usage: SET_PERMISSION <path> <target_user> <view> <download> <edit>");
+    if (tokens.size() < 4) {
+        send_line(sockfd_, "ERR 400 Usage: SET_PERMISSION <path> <target_user> <level|view> [download] [edit]");
         return true;
     }
-    
+
     string rel_path = tokens[1];
     string target_user = tokens[2];
-    bool can_view = tokens[3] == "1" || tokens[3] == "true";
-    bool can_download = tokens[4] == "1" || tokens[4] == "true";
-    bool can_edit = tokens.size() >= 6 && (tokens[5] == "1" || tokens[5] == "true");
+    bool can_view = false;
+    bool can_download = false;
+    bool can_edit = false;
+
+    // Support two modes: numeric level or booleans
+    // Mode A: SET_PERMISSION <path> <target_user> <level>
+    // Mode B (backward-compatible): SET_PERMISSION <path> <target_user> <view> <download> <edit>
+    if (!tokens[3].empty() && isdigit(tokens[3][0])) {
+        int lvl = 0;
+        try { lvl = stoi(tokens[3]); } catch (...) { lvl = 0; }
+        can_view = lvl >= 1;
+        can_download = lvl >= 1;
+        can_edit = lvl >= 2;
+    } else {
+        can_view = tokens[3] == "1" || tokens[3] == "true";
+        can_download = tokens.size() >= 5 && (tokens[4] == "1" || tokens[4] == "true");
+        can_edit = tokens.size() >= 6 && (tokens[5] == "1" || tokens[5] == "true");
+    }
     
     // Get file_id
     string err;
@@ -1361,16 +1400,25 @@ bool ClientSession::cmd_check_permission(const vector<string> &tokens) {
         send_line(sockfd_, "ERR 404 File not found");
         return true;
     }
-    
-    bool can_view, can_download, can_edit;
-    if (!server_.db().check_permission(file_id, user_id_, can_view, can_download, can_edit, err)) {
+
+    bool can_view_b, can_download_b, can_edit_b;
+    if (!server_.db().check_permission(file_id, user_id_, can_view_b, can_download_b, can_edit_b, err)) {
         send_line(sockfd_, "ERR 500 Cannot check permission: " + err);
         return true;
     }
-    
-    string msg = "OK 200 view=" + string(can_view ? "1" : "0") +
-                 " download=" + string(can_download ? "1" : "0") +
-                 " edit=" + string(can_edit ? "1" : "0");
+
+    // Derive level and remove flag
+    int level = 0;
+    if (can_edit_b && can_download_b) level = 3;
+    else if (can_edit_b) level = 2;
+    else if (can_view_b) level = 1;
+    bool can_remove = level >= 3;
+
+    string msg = "OK 200 level=" + to_string(level) +
+                 " view=" + string(can_view_b ? "1" : "0") +
+                 " download=" + string(can_download_b ? "1" : "0") +
+                 " edit=" + string(can_edit_b ? "1" : "0") +
+                 " remove=" + string(can_remove ? "1" : "0");
     send_line(sockfd_, msg);
     return true;
 }
