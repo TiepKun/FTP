@@ -43,4 +43,6 @@ public:
                                    uint64_t size_bytes,
                                    bool is_folder,
                                    string &err) = 0;
+
+    virtual bool list_files(int owner_id, string &paths, string &err) = 0;
 };

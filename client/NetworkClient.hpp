@@ -17,6 +17,13 @@ public:
     bool get_text(const string &path, string &content, string &err);
     bool put_text(const string &path, const string &content, string &err);
 
+    bool upload_file(const string &local_path,
+                 const string &remote_path,
+                 string &err);
+    bool list_files_db(string &paths, string &err);
+    bool send_raw_command(const string& cmd, string& out, string& err);
+             
+
 private:
     int sockfd_ = -1;
 };

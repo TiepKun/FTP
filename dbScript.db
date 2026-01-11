@@ -1,0 +1,55 @@
+-- Bảng thông tin người dùng --
+CREATE TABLE client (
+    username        TEXT PRIMARY KEY,
+    password        TEXT NOT NULL,
+    quota_bytes     INTEGER NOT NULL DEFAULT 100000000, -- quota 100MB mặc định
+    used_bytes      INTEGER NOT NULL DEFAULT 0, -- Tổng dung lượng đã dùng
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng metadata các file
+CREATE TABLE metadata_file (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner       TEXT NOT NULL,
+    path        TEXT NOT NULL,        -- đường dẫn tương đối (vd: "docs/a.txt")
+    size_bytes  INTEGER NOT NULL,
+    is_deleted  INTEGER NOT NULL DEFAULT 0,  -- dùng cho Recycle Bin
+    deleted_at  DATETIME,
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (owner) REFERENCES user(username)
+);
+
+-- Bảng phân quyền
+CREATE TABLE file_permission (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    path        TEXT NOT NULL,
+    owner       TEXT NOT NULL,
+    target_user TEXT NOT NULL,
+    can_view    INTEGER NOT NULL DEFAULT 1,
+    can_download INTEGER NOT NULL DEFAULT 1,
+    can_edit    INTEGER NOT NULL DEFAULT 0
+);
+
+
+-- Bảng lưu log 
+CREATE TABLE log_entry (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    username    TEXT,
+    action      TEXT NOT NULL,               -- "UPLOAD", "DOWNLOAD", "PUT_TEXT", "DELETE", …
+    path        TEXT,
+    detail      TEXT,
+    timestamp   DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng lưu để xử lý pause/continue
+CREATE TABLE transfer_session (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    username    TEXT NOT NULL,
+    path        TEXT NOT NULL,
+    type        TEXT NOT NULL,     -- "UPLOAD" hoặc "DOWNLOAD"
+    offset      INTEGER NOT NULL DEFAULT 0,  -- byte đã hoàn thành
+    size_bytes  INTEGER NOT NULL,
+    last_update DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+

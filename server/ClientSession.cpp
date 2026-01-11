@@ -27,11 +27,20 @@ bool is_txt_file(const string &path) {
     if (path.size() < ext.size()) return false;
     return path.compare(path.size() - ext.size(), ext.size(), ext) == 0;
 }
-} // namespace
+} 
 
 ClientSession::ClientSession(int sockfd, FileServer &server)
     : sockfd_(sockfd),
       server_(server) {}
+
+ClientSession::~ClientSession() {
+    if (counted_online_ && !username_.empty()) {
+        server_.user_logout(username_);
+    }
+}
+
+
+
 
 void ClientSession::run() {
     string line;
@@ -55,6 +64,8 @@ bool ClientSession::handle_command(const string &line) {
     if (cmd == "REGISTER") {
         return cmd_register(tokens);
     }
+    if (cmd == "WHO")      return cmd_who();       // <- QUAN TRỌNG PHẢI ĐỂ TRÊN
+    if (cmd == "STATS")    return cmd_stats(); 
 
     if (!ensure_authenticated()) return false;
 
@@ -62,7 +73,9 @@ bool ClientSession::handle_command(const string &line) {
     if (cmd == "DOWNLOAD")  return cmd_download(tokens);
     if (cmd == "GET_TEXT")  return cmd_get_text(tokens);
     if (cmd == "PUT_TEXT")  return cmd_put_text(tokens);
-    if (cmd == "STATS")     return cmd_stats();
+    if (cmd == "LIST_DB")   return cmd_list_db(tokens);
+    if (cmd == "LOGOUT")  return cmd_logout();
+
 
     send_line(sockfd_, "ERR 400 Unknown command");
     return true;
@@ -87,40 +100,52 @@ bool ClientSession::cmd_auth(const vector<string> &tokens) {
 
     UserRecord rec;
     string err;
+
+    // user không tồn tại
     if (!server_.db().get_user_by_username(user, rec, err)) {
         server_.logger().log(user, "Login failed (user not found)");
         send_line(sockfd_, "ERR 403 Invalid credentials");
-        return false;
+        return true;
     }
 
-    // Demo: pass == password_hash
-    if (pass != rec.password_hash) {
-        server_.logger().log(user, "Login failed (wrong password)");
-        send_line(sockfd_, "ERR 403 Invalid credentials");
-        return false;
-    }
-
-    // So khớp hash; tạm cho phép chuỗi cũ (plaintext) để tương thích.
+    // password sai
     string pass_hashed = hash_password(pass);
     if (!(pass_hashed == rec.password_hash || pass == rec.password_hash)) {
         server_.logger().log(user, "Login failed (wrong password)");
         send_line(sockfd_, "ERR 403 Invalid credentials");
-        return false;
+        return true;
     }
 
+    //CHECK ĐĂNG NHẬP TRÙNG
+    if (!counted_online_ && server_.is_user_online(user)) {
+        send_line(sockfd_, "ERR 409 User already logged in");
+        return true;      // giữ socket, không đóng
+    }
+
+    // đánh dấu phiên này đã login
     authenticated_ = true;
     username_      = rec.username;
     user_id_       = rec.id;
 
+    // đánh dấu user online (chỉ 1 lần / socket)
+    if (!counted_online_) {
+        counted_online_ = true;
+        server_.user_login(username_);
+    }
+
+    // quota
     server_.quota_mgr().set_limit(username_, rec.quota_bytes);
     server_.quota_mgr().add_usage(username_, rec.used_bytes);
 
+    // log
     server_.logger().log(user, "Login success");
     server_.db().insert_log(user_id_, "login", "Login success", "0.0.0.0", err);
 
     send_line(sockfd_, "OK 200 Authenticated");
     return true;
 }
+
+
 
 bool ClientSession::cmd_register(const vector<string> &tokens) {
     if (tokens.size() < 3) {
@@ -137,7 +162,7 @@ bool ClientSession::cmd_register(const vector<string> &tokens) {
         send_line(sockfd_, "ERR 409 User already exists");
         return true;
     }
-    if (!err.empty()) {
+    if (!err.empty()) {server_.user_login(username_);
         send_line(sockfd_, "ERR 500 DB error: " + err);
         return true;
     }
@@ -152,18 +177,6 @@ bool ClientSession::cmd_register(const vector<string> &tokens) {
             send_line(sockfd_, "ERR 500 DB error: " + err);
         }
         return true;
-    }
-
-    static mutex file_mtx;
-    {
-        lock_guard<mutex> lock(file_mtx);
-        ofstream ofs("user_account.txt", ios::app);
-        if (!ofs) {
-            send_line(sockfd_, "ERR 500 Cannot open user_account.txt");
-            return true;
-        }
-        // Lưu username + hash (không lưu plaintext).
-        ofs << user << " " << pass_hashed << "\n";
     }
 
     server_.logger().log(user, "REGISTER success");
@@ -183,8 +196,21 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
         return true;
     }
 
-    string rel_path = tokens[1];
-    uint64_t size   = stoull(tokens[2]);
+    uint64_t size;
+    try {
+        size = stoull(tokens[1]);      // <== SIZE nằm trước
+    } catch (...) {
+        send_line(sockfd_, "ERR 400 Invalid size");
+        return true;
+    }
+
+    // GHÉP phần còn lại làm path (kể cả có space)
+    string rel_path;
+    for (size_t i = 2; i < tokens.size(); i++) {
+        if (i > 2) rel_path += " ";
+        rel_path += tokens[i];
+    }
+
 
     string base_dir  = server_.root_dir() + "/" + username_;
     string full_path = base_dir + "/" + rel_path;
@@ -392,10 +418,61 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
 }
 
 bool ClientSession::cmd_stats() {
-    string msg = "OK 200 active=" + to_string(server_.active_users()) +
+    string msg = "OK 200 online=" + to_string(server_.online_users_count()) +
                  " bytes_in=" + to_string(server_.bytes_in()) +
                  " bytes_out=" + to_string(server_.bytes_out());
     send_line(sockfd_, msg);
     server_.logger().log(username_, "STATS");
+    return true;
+}
+
+
+
+
+bool ClientSession::cmd_list_db(const vector<string> &tokens) {
+    string err;
+    string paths;
+
+    if (!server_.db().list_files(user_id_, paths, err)) {
+        send_line(sockfd_, "ERR 500 DB error: " + err);
+        return true;
+    }
+
+    // Trả số dòng + nội dung
+    int count = 0;
+    for (char c : paths) if (c == '\n') count++;
+
+    send_line(sockfd_, "OK 200 " + to_string(count));
+    send_all(sockfd_, paths.data(), paths.size());  // gửi raw
+    return true;
+}
+
+bool ClientSession::cmd_logout() {
+    if (authenticated_) {
+        authenticated_ = false;
+
+        if (counted_online_) {
+            server_.user_logout(username_);
+            counted_online_ = false;
+        }
+    }
+
+    send_line(sockfd_, "OK 200 Logged out");
+    return true;   // tiếp tục run(), không đóng socket
+}
+
+bool ClientSession::cmd_who() {
+    auto &online = server_.get_online_users();
+
+    string msg = "OK 200 Users online: ";
+    bool first = true;
+
+    for (auto &p : online) {
+        if (!first) msg += ", ";
+        msg += p.first;
+        first = false;
+    }
+
+    send_line(sockfd_, msg);
     return true;
 }

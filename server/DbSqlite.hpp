@@ -37,6 +37,7 @@ public:
                            bool is_folder,
                            string &err) override;
 
+    bool list_files(int owner_id, string &paths, string &err) override;
 private:
     string db_path_;
     sqlite3 *db_ = nullptr;
