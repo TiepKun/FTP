@@ -1,95 +1,111 @@
+Ứng dụng chia sẻ và chỉnh sửa file qua TCP
+
 Giới thiệu đề tài
+- Xây dựng hệ thống chia sẻ file theo mô hình client–server, hỗ trợ upload/download, xem/sửa file .txt, resume truyền file, chia sẻ theo quyền và quota người dùng.
+- Giao thức tầng ứng dụng dạng text line đơn giản, dễ debug qua telnet/netcat.
+- Dữ liệu được lưu trên filesystem, metadata/ACL/quota/resume lưu bằng SQLite.
 
-Xây dựng ứng dụng chia sẻ và chỉnh sửa file qua TCP, hỗ trợ upload/download, xem/sửa file .txt, resume truyền, unzip trên server, quota người dùng, chia sẻ file/thư mục theo quyền.
-Mục tiêu: server đa luồng, giao thức text đơn giản, client GUI thân thiện, lưu metadata/ACL trong SQLite để bảo toàn trạng thái giữa các phiên.
-Phân tích & thiết kế hệ thống
+Kiến trúc tổng thể
+- Server TCP đa luồng: mỗi kết nối được xử lý bởi một ClientSession riêng.
+- Lưu file vật lý tại ./data/<username>/..., hỗ trợ xóa mềm bằng thư mục .trash.
+- SQLite lưu metadata, ACL và trạng thái resume truyền file.
+- Client GUI (GTKmm) hiển thị “My Files” và “Shared Files”, có trình soạn thảo .txt.
+- Ghi log hoạt động vào server.log (mặc định ở thư mục chạy server).
 
-Kiến trúc tổng thể: mô hình client–server.
-Server: TCP listener, mỗi client một thread ClientSession. Lưu file trong root_dir/user/, metadata + ACL + log + transfer session trong SQLite qua DbSqlite.
-Client: GTKmm GUI (MainWindow), dùng NetworkClient để gửi lệnh/nhận dữ liệu. Hiển thị hai cây: My Files và Shared Files, text editor cho .txt.
-Quản lý người dùng/quota:
-Bảng app_user: username, password_hash, quota_bytes, used_bytes.
-Quota kiểm tra trước ghi (UPLOAD/PUT_TEXT), cập nhật used_bytes sau khi ghi, có hàm compute_disk_usage để đồng bộ thực tế.
-Metadata file:
-Bảng file_entry: path, size_bytes, is_folder, is_deleted, owner_id. Index unique (owner_id, path); xóa mềm (is_deleted=1, di chuyển file vào .trash).
-Lệnh LIST_DB trả danh sách path|size|is_folder|owner|can_view|can_download|can_edit cho cả owned và shared.
-ACL chia sẻ:
-Bảng file_acl: file_id, grantee_id, perm_read, perm_download, perm_write (Edit = perm_write=1).
-Lệnh: SET_PERMISSION, LIST_ACL, CHECK_PERMISSION.
-Chia sẻ folder: áp quyền xuống toàn bộ cây con; quyền thừa kế từ tổ tiên dài nhất. Nếu file được share trực tiếp và folder cha cũng share, gộp quyền (ưu tiên OR).
-Truyền dữ liệu & resume:
-UPLOAD <size> <path>/DOWNLOAD <path>; resume qua PAUSE_UPLOAD/CONTINUE_UPLOAD và tương tự download, lưu offset trong transfer_session.
-Thao tác file:
-CREATE_FOLDER, RENAME, MOVE, DELETE (soft), RESTORE, UNZIP.
-GET_TEXT/PUT_TEXT chỉ cho .txt.
-Logging:
-server.log ghi Auth, Register, Upload/Download, Text, Share, Stats, Delete/Restore, Move/Rename.
-Thiết kế giao thức tầng ứng dụng (tóm tắt lệnh)
+Kiến trúc thư mục project
+- server/: mã nguồn server (FileServer, ClientSession, DbSqlite, quota, logger).
+- client/: mã nguồn client GUI (LoginWindow, MainWindow, NetworkClient).
+- common/: mã dùng chung (Protocol, Utils).
+- data/: thư mục dữ liệu runtime do server tạo (data/<user>/...).
+- build/: thư mục build CMake (tạo khi build).
+- fileshare.db: CSDL SQLite (tự tạo khi chạy server).
+- server.log: log server (tự tạo khi chạy server).
+- user_account.txt: file legacy, phiên bản hiện tại không dùng để auth.
 
-Dạng text line, kết thúc \n. Thân nhị phân gửi sau khi server báo OK 100 <size> hoặc tương đương.
-Auth: REGISTER <user> <pass>, AUTH <user> <pass>.
-File: UPLOAD <size> <path> + body, DOWNLOAD <path>, GET_TEXT <path> [LOCK] (LOCK để giữ quyền edit), PUT_TEXT <path> <size> + body (chỉ user giữ LOCK mới ghi được).
-Danh sách/ACL: LIST_DB, SET_PERMISSION <path> <user> <view> <download> <edit>, LIST_ACL <path>, CHECK_PERMISSION <path>.
-Thao tác file: CREATE_FOLDER <path>, RENAME <old> <new>, MOVE <old> <new>, DELETE <path>, RESTORE <path>, LIST_DELETED.
-Khác: UNZIP <zip> [target], PAUSE/CONTINUE_UPLOAD/DOWNLOAD, STATS, WHO, LOGOUT.
-Nền tảng/thư viện
+Database (SQLite)
+- app_user: id, username, password_hash, quota_bytes, used_bytes, created_at.
+- file_entry: id, owner_id, path, size_bytes, is_folder, is_deleted, deleted_at, created_at, updated_at.
+- file_acl: id, file_id, grantee_id, perm_read, perm_download, perm_write, created_at.
+- transfer_session: id, user_id, path, type, offset, size_bytes, last_update.
+- audit_log: id, user_id, action, detail, created_at, remote_ip.
+- Index/constraint chính: UNIQUE(owner_id, path) cho file_entry; UNIQUE(file_id, grantee_id) cho file_acl.
 
-C++17, CMake.
-GTKmm 3 cho GUI.
-SQLite3 cho CSDL.
-POSIX sockets (TCP) cho truyền thông.
-std::thread/std::atomic cho đa luồng và tiến trình upload.
-Cơ chế kiểm soát nhiều máy khách
+Giao thức ứng dụng (protocol)
+Quy ước chung
+- Lệnh là 1 dòng text kết thúc bằng \n.
+- Dữ liệu nhị phân gửi sau khi server trả OK 100.
+- Mã trả về phổ biến: OK 100 (ready), OK 200 (success), OK 201 (created), ERR 4xx/5xx.
 
-Mỗi kết nối một thread, từ chối login trùng user (đã online).
-Quota per-user, atomic update khi ghi, đồng bộ lại từ disk khi cần.
-Transfer session lưu offset để resume khi ngắt kết nối.
-ACL kiểm tra cho mỗi lệnh GET/PUT/Download/Upload (khi share).
-Thiết kế UI (GTKmm)
+Auth
+- REGISTER <user> <pass>
+- AUTH <user> <pass>
+- LOGOUT
+- WHO
 
-Thanh trên: ô path + nút Load/Save/Upload/Refresh/Download/Unzip, điều khiển Pause/Resume upload/download.
-Thanh thao tác My Files: Create Folder, Rename, Move, Delete, Restore, Show Deleted, Share, Change Role.
-Khu danh sách: “My Files” (cây thư mục sở hữu) và “Shared Files” (các mục được share). Chọn item shared sẽ ẩn/disable thao tác phá hủy; editor chỉ editable nếu quyền Edit; Download bật nếu quyền Download.
-Dialog Share: chọn file/folder sở hữu, nhập user, chọn quyền (View/Download/Edit).
-Dialog Change Role: chọn mục đã share, hiển thị danh sách user được cấp và đổi role; client auto-refresh mỗi 2s và thông báo khi role thay đổi (cả phía owner và grantee).
-Cơ chế chia sẻ & quyền
+File / Text
+- LIST_DB
+  + Trả về: path|size|is_folder|owner|can_view|can_download|can_edit
+- UPLOAD <size> <path> + body
+- DOWNLOAD <path>
+- GET_TEXT <path> [LOCK]
+  + LOCK để xin quyền edit. Nếu bị khóa: ERR 423 Locked by <username>
+- PUT_TEXT <path> <size> + body
+  + Chỉ người giữ LOCK mới được ghi.
+- STATS
 
-View: chỉ xem (Load .txt), không Download nếu perm_download=0, không edit.
-Download: View + Download, không edit.
-Edit: Download + sửa .txt (PUT_TEXT), thao tác phá hủy chỉ cho owner (sharee không Rename/Delete/Move).
-Chia sẻ folder: áp quyền xuống toàn bộ con; khi đổi role folder, các file con cập nhật quyền mới.
-Kiểm soát dữ liệu và xóa/khôi phục
+File operations
+- CREATE_FOLDER <path>
+- RENAME <old> <new>
+- MOVE <old> <new>
+- COPY <src> <dst>
+- DELETE <path>
+- RESTORE <path>
+- LIST_DELETED
+- UNZIP <zip_path> [target]
+  + Chỉ hoạt động nếu build có libzip (HAVE_LIBZIP).
 
-Delete: xóa mềm, di chuyển vào .trash, DB đánh dấu is_deleted.
-Restore: khôi phục từ trash, reset is_deleted.
-LIST_DELETED: liệt kê mục đã xóa để chủ sở hữu khôi phục.
-Kết quả xây dựng ứng dụng (minh họa)
+Pause/Resume
+- PAUSE_UPLOAD <path>
+- CONTINUE_UPLOAD <path>
+- PAUSE_DOWNLOAD <path> [offset]
+- CONTINUE_DOWNLOAD <path>
 
-Upload/download/resume hoạt động với file lớn.
-UI hiển thị rõ My Files vs Shared Files; role áp dụng tức thời sau khi đổi (nhờ auto-refresh).
-Share folder: user nhận thấy folder và toàn bộ file con; đổi role trên folder cập nhật quyền file con.
-Chia sẻ file lẻ: chỉ file đó xuất hiện trong Shared Files, không thêm dòng folder nếu folder không share.
-Unzip remote hỗ trợ giải nén trên server, tự refresh danh sách.
-Phân công công việc (đề xuất)
+ACL (chia sẻ quyền)
+- SET_PERMISSION <path> <target_user> <view> <download> <edit>
+- CHECK_PERMISSION <path>
+- LIST_ACL <path>
 
-Backend/server (giao thức, DB, quota, ACL, resume): 1–2 người.
-Client/GUI (GTKmm, logic quyền, auto-refresh, share/ChangeRole): 1–2 người.
-QA & kịch bản test (share folder/file, đổi role, quota, resume, delete/restore): 1 người.
-Build/DevOps (CMake, đóng gói, hướng dẫn chạy): 1 người.
-Vấn đề gặp phải & xử lý
+Cơ chế lock chỉnh sửa (.txt)
+- Mục tiêu: đảm bảo chỉ 1 người được edit tại một thời điểm.
+- Cách dùng:
+  + Client muốn edit: GET_TEXT <path> LOCK để xin quyền.
+  + Server cấp lock nếu chưa có ai giữ; nếu đã có thì trả ERR 423 Locked by <username>.
+  + Khi Save (PUT_TEXT) thành công, lock sẽ được giải phóng.
+  + Khi user logout hoặc mất kết nối, server tự giải phóng mọi lock của user đó.
+- Người không giữ lock chỉ xem, không được ghi.
 
-UPSERT SQLite không chạy do index partial: tạo index unique full (owner_id, path); upsert reset is_deleted.
-Share path có khoảng trắng/thư mục: ghép path đúng trong SET_PERMISSION, tìm quyền từ tổ tiên folder dài nhất.
-Share folder không áp xuống con: thêm áp quyền xuống toàn bộ cây khi đổi role folder.
-UI không cập nhật role ngay: thêm auto-refresh 2s và hiển thị thông báo role thay đổi, đổi role xong tự refresh.
-Upload folder auto-expand gây khó chịu: đổi thành chỉ chọn, không expand nội dung.
-Hướng dẫn chạy nhanh
+Yêu cầu cài đặt (chi tiết)
+Linux (Ubuntu/Debian)
+- sudo apt update
+- sudo apt install -y build-essential cmake pkg-config libsqlite3-dev libgtkmm-3.0-dev
 
-Yêu cầu cài đặt:
-Xóa thư mục build cũ (nếu có): rm -rf build
-Sau đó, cài đặt các thư viện cần thiết (nếu chưa cài): sudo apt install libgtkmm-3.0-dev libsqlite3-dev
-Xóa thư mục data và server.log cũ, fileshare.db;
-Build: cmake -S . -B build && cmake --build build
-Chạy server: ./build/fileshare_server 5051 (từ thư mục gốc repo).
-Chạy client: ./build/fileshare_client.
-Đăng ký/đăng nhập, upload file/folder, chia sẻ bằng nút Share, đổi quyền bằng Change Role; mở 2 client để kiểm thử share/role.
+macOS (Homebrew)
+- brew install cmake pkg-config sqlite3 gtkmm3
+
+Build
+- Nếu thư mục build bị dính cache từ máy khác, xóa build trước:
+  + rm -rf build
+- Build chuẩn:
+  + cmake -S . -B build
+  + cmake --build build
+
+Chạy
+- Server (mặc định dùng ./data, port 5051):
+  + ./build/fileshare_server 5051
+- Client:
+  + ./build/fileshare_client
+
+Ghi chú vận hành
+- Dữ liệu người dùng nằm trong ./data/<username>/
+- Xóa mềm: file/folder chuyển vào ./data/<username>/.trash/
+- Log server: server.log tại thư mục chạy server (có thể đổi bằng biến môi trường FS_LOG_PATH).
