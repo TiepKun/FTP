@@ -28,7 +28,7 @@ Thiết kế giao thức tầng ứng dụng (tóm tắt lệnh)
 
 Dạng text line, kết thúc \n. Thân nhị phân gửi sau khi server báo OK 100 <size> hoặc tương đương.
 Auth: REGISTER <user> <pass>, AUTH <user> <pass>.
-File: UPLOAD <size> <path> + body, DOWNLOAD <path>, GET_TEXT <path>, PUT_TEXT <path> <size> + body.
+File: UPLOAD <size> <path> + body, DOWNLOAD <path>, GET_TEXT <path> [LOCK] (LOCK để giữ quyền edit), PUT_TEXT <path> <size> + body (chỉ user giữ LOCK mới ghi được).
 Danh sách/ACL: LIST_DB, SET_PERMISSION <path> <user> <view> <download> <edit>, LIST_ACL <path>, CHECK_PERMISSION <path>.
 Thao tác file: CREATE_FOLDER <path>, RENAME <old> <new>, MOVE <old> <new>, DELETE <path>, RESTORE <path>, LIST_DELETED.
 Khác: UNZIP <zip> [target], PAUSE/CONTINUE_UPLOAD/DOWNLOAD, STATS, WHO, LOGOUT.

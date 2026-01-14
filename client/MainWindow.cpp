@@ -210,8 +210,9 @@ MainWindow::MainWindow(NetworkClient &&client, const string &username)
 void MainWindow::on_btn_load_clicked() {
     string path = entry_path_.get_text();
     string content, err;
+    bool want_lock = !current_is_shared_ || current_can_edit_;
 
-    if (!client_.get_text(path, content, err)) {
+    if (!client_.get_text(path, content, err, want_lock)) {
         lbl_status_.set_text("Load failed: " + err);
         return;
     }
@@ -224,8 +225,9 @@ void MainWindow::on_btn_save_clicked() {
     string path = entry_path_.get_text();
     string content = text_view_.get_buffer()->get_text();
     string err;
+    string new_version;
 
-    if (!client_.put_text(path, content, err)) {
+    if (!client_.put_text(path, content, new_version, err)) {
         lbl_status_.set_text("Save failed: " + err);
         return;
     }

@@ -58,6 +58,32 @@ public:
         const std::string &path
     );
 
+    std::unique_lock<std::mutex> lock_file(
+        const std::string &owner_user,
+        const std::string &path
+    );
+
+    bool try_lock_edit(
+        const std::string &owner_user,
+        const std::string &path,
+        const std::string &username,
+        std::string &locked_by
+    );
+
+    bool get_edit_lock_owner(
+        const std::string &owner_user,
+        const std::string &path,
+        std::string &locked_by
+    );
+
+    void release_edit_lock(
+        const std::string &owner_user,
+        const std::string &path,
+        const std::string &username
+    );
+
+    void release_all_edit_locks(const std::string &username);
+
 private:
     string root_dir_;
     int port_;
@@ -74,4 +100,11 @@ private:
     // upload state per user:path
     std::unordered_map<std::string, std::shared_ptr<UploadState>> upload_states_;
     std::mutex upload_states_mutex_;
+
+    // per-file edit lock
+    std::unordered_map<std::string, std::shared_ptr<std::mutex>> file_locks_;
+    std::mutex file_locks_mutex_;
+
+    std::unordered_map<std::string, std::string> edit_locks_;
+    std::mutex edit_locks_mutex_;
 };

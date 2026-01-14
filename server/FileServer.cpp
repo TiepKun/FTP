@@ -133,3 +133,79 @@ std::shared_ptr<UploadState> FileServer::create_upload_state(
     upload_states_[key] = state;
     return state;
 }
+
+std::unique_lock<std::mutex> FileServer::lock_file(
+    const std::string &owner_user,
+    const std::string &path
+) {
+    std::string key = owner_user + ":" + path;
+    std::shared_ptr<std::mutex> mtx;
+    {
+        std::lock_guard<std::mutex> lk(file_locks_mutex_);
+        auto it = file_locks_.find(key);
+        if (it == file_locks_.end()) {
+            mtx = std::make_shared<std::mutex>();
+            file_locks_.emplace(key, mtx);
+        } else {
+            mtx = it->second;
+        }
+    }
+    return std::unique_lock<std::mutex>(*mtx);
+}
+
+bool FileServer::try_lock_edit(
+    const std::string &owner_user,
+    const std::string &path,
+    const std::string &username,
+    std::string &locked_by
+) {
+    std::string key = owner_user + ":" + path;
+    std::lock_guard<std::mutex> lk(edit_locks_mutex_);
+    auto it = edit_locks_.find(key);
+    if (it == edit_locks_.end()) {
+        edit_locks_[key] = username;
+        return true;
+    }
+    if (it->second == username) {
+        return true;
+    }
+    locked_by = it->second;
+    return false;
+}
+
+bool FileServer::get_edit_lock_owner(
+    const std::string &owner_user,
+    const std::string &path,
+    std::string &locked_by
+) {
+    std::string key = owner_user + ":" + path;
+    std::lock_guard<std::mutex> lk(edit_locks_mutex_);
+    auto it = edit_locks_.find(key);
+    if (it == edit_locks_.end()) return false;
+    locked_by = it->second;
+    return true;
+}
+
+void FileServer::release_edit_lock(
+    const std::string &owner_user,
+    const std::string &path,
+    const std::string &username
+) {
+    std::string key = owner_user + ":" + path;
+    std::lock_guard<std::mutex> lk(edit_locks_mutex_);
+    auto it = edit_locks_.find(key);
+    if (it != edit_locks_.end() && it->second == username) {
+        edit_locks_.erase(it);
+    }
+}
+
+void FileServer::release_all_edit_locks(const std::string &username) {
+    std::lock_guard<std::mutex> lk(edit_locks_mutex_);
+    for (auto it = edit_locks_.begin(); it != edit_locks_.end(); ) {
+        if (it->second == username) {
+            it = edit_locks_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}

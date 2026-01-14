@@ -125,12 +125,15 @@ bool NetworkClient::register_user(const string &user, const string &pass, string
     return false;
 }
 
-bool NetworkClient::get_text(const string &path, string &content, string &err) {
+bool NetworkClient::get_text(const string &path, string &content, string &err, bool lock_edit) {
     if (sockfd_ < 0) {
         err = "Not connected";
         return false;
     }
     string cmd = "GET_TEXT " + path;
+    if (lock_edit) {
+        cmd += " LOCK";
+    }
     if (!send_line(sockfd_, cmd)) {
         err = "Send error";
         return false;
@@ -163,11 +166,12 @@ bool NetworkClient::get_text(const string &path, string &content, string &err) {
     return true;
 }
 
-bool NetworkClient::put_text(const string &path, const string &content, string &err) {
+bool NetworkClient::put_text(const string &path, const string &content, string &new_version, string &err) {
     if (sockfd_ < 0) {
         err = "Not connected";
         return false;
     }
+    new_version.clear();
     uint64_t size = content.size();
     string cmd = "PUT_TEXT " + path + " " + to_string(size);
     if (!send_line(sockfd_, cmd)) {
@@ -183,7 +187,7 @@ bool NetworkClient::put_text(const string &path, const string &content, string &
         err = line;
         return false;
     }
-    if (!send_all(sockfd_, content.data(), content.size())) {
+    if (size > 0 && !send_all(sockfd_, content.data(), content.size())) {
         err = "Send body error";
         return false;
     }
@@ -191,7 +195,15 @@ bool NetworkClient::put_text(const string &path, const string &content, string &
         err = "No final response";
         return false;
     }
-    if (line.rfind("OK 200", 0) == 0) return true;
+    if (line.rfind("OK 200", 0) == 0) {
+        auto tokens = split_tokens(line);
+        for (const auto &tok : tokens) {
+            if (tok.rfind("v=", 0) == 0) {
+                new_version = tok.substr(2);
+            }
+        }
+        return true;
+    }
     err = line;
     return false;
 }

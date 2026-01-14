@@ -36,6 +36,42 @@ bool is_txt_file(const string &path) {
     if (path.size() < ext.size()) return false;
     return path.compare(path.size() - ext.size(), ext.size(), ext) == 0;
 }
+
+constexpr uint64_t k_fnv_offset = 1469598103934665603ULL;
+constexpr uint64_t k_fnv_prime  = 1099511628211ULL;
+
+uint64_t fnv1a64_update(uint64_t hash, const char *data, size_t len) {
+    for (size_t i = 0; i < len; ++i) {
+        hash ^= static_cast<unsigned char>(data[i]);
+        hash *= k_fnv_prime;
+    }
+    return hash;
+}
+
+uint64_t fnv1a64(const char *data, size_t len) {
+    return fnv1a64_update(k_fnv_offset, data, len);
+}
+
+string hex_u64(uint64_t v) {
+    stringstream ss;
+    ss << hex << setw(16) << setfill('0') << v;
+    return ss.str();
+}
+
+string normalize_version(const string &version) {
+    string out = version;
+    for (char &c : out) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    }
+    return out;
+}
+
+bool parse_version_token(const string &token, string &out) {
+    if (token.rfind("v=", 0) != 0) return false;
+    out = normalize_version(token.substr(2));
+    return !out.empty();
+}
+
 } 
 
 uint64_t ClientSession::compute_disk_usage(const string &base_dir) {
@@ -61,6 +97,7 @@ ClientSession::ClientSession(int sockfd, FileServer &server)
 
 ClientSession::~ClientSession() {
     if (counted_online_ && !username_.empty()) {
+        server_.release_all_edit_locks(username_);
         server_.user_logout(username_);
     }
 }
@@ -480,11 +517,25 @@ bool ClientSession::cmd_download(const vector<string> &tokens) {
 
 bool ClientSession::cmd_get_text(const vector<string> &tokens) {
     if (tokens.size() < 2) {
-        send_line(sockfd_, "ERR 400 Usage: GET_TEXT <path>");
+        send_line(sockfd_, "ERR 400 Usage: GET_TEXT <path> [LOCK]");
         return true;
     }
 
-    string rel_path  = tokens[1];
+    string rel_path;
+    bool want_lock = false;
+    size_t last = tokens.size();
+    if (tokens.back() == "LOCK") {
+        want_lock = true;
+        last = tokens.size() - 1;
+    }
+    if (last < 2) {
+        send_line(sockfd_, "ERR 400 Usage: GET_TEXT <path> [LOCK]");
+        return true;
+    }
+    for (size_t i = 1; i < last; ++i) {
+        if (i > 1) rel_path += " ";
+        rel_path += tokens[i];
+    }
     if (!is_txt_file(rel_path)) {
         send_line(sockfd_, "ERR 415 Only .txt allowed");
         return true;
@@ -495,17 +546,32 @@ bool ClientSession::cmd_get_text(const vector<string> &tokens) {
     uint64_t size_meta = 0;
     bool is_folder = false;
 
-    // Check permission (view or edit)
-    if (!check_file_permission(rel_path, true, false, false, owner_id, owner_user, file_id, size_meta, is_folder) &&
-        !check_file_permission(rel_path, false, false, true, owner_id, owner_user, file_id, size_meta, is_folder)) {
-        send_line(sockfd_, "ERR 403 Permission denied");
-        return true;
+    if (want_lock) {
+        if (!check_file_permission(rel_path, false, false, true, owner_id, owner_user, file_id, size_meta, is_folder)) {
+            send_line(sockfd_, "ERR 403 Permission denied (edit required)");
+            return true;
+        }
+        string locked_by;
+        if (!server_.try_lock_edit(owner_user, rel_path, username_, locked_by)) {
+            send_line(sockfd_, "ERR 423 Locked by " + locked_by);
+            return true;
+        }
+    } else {
+        // Check permission (view or edit)
+        if (!check_file_permission(rel_path, true, false, false, owner_id, owner_user, file_id, size_meta, is_folder) &&
+            !check_file_permission(rel_path, false, false, true, owner_id, owner_user, file_id, size_meta, is_folder)) {
+            send_line(sockfd_, "ERR 403 Permission denied");
+            return true;
+        }
     }
 
     string full_path = server_.root_dir() + "/" + owner_user + "/" + rel_path;
 
     ifstream ifs(full_path);
     if (!ifs) {
+        if (want_lock) {
+            server_.release_edit_lock(owner_user, rel_path, username_);
+        }
         send_line(sockfd_, "ERR 404 File not found");
         return true;
     }
@@ -514,7 +580,8 @@ bool ClientSession::cmd_get_text(const vector<string> &tokens) {
                    istreambuf_iterator<char>());
 
     uint64_t size = content.size();
-    send_line(sockfd_, "OK 100 " + to_string(size));
+    string version = "v=" + hex_u64(fnv1a64(content.data(), content.size()));
+    send_line(sockfd_, "OK 100 " + to_string(size) + " " + version);
     if (!send_all(sockfd_, content.data(), content.size())) {
         return false;
     }
@@ -528,35 +595,39 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         send_line(sockfd_, "ERR 400 Usage: PUT_TEXT <path> <size>");
         return true;
     }
-    // Support paths containing spaces and optional provided total size as last token
+
     string rel_path;
-    uint64_t provided_total = 0;
-    if (tokens.size() >= 3) {
-        // if last token is all digits, treat it as provided_total
-        bool last_is_number = true;
-        for (char c : tokens.back()) if (!isdigit((unsigned char)c)) { last_is_number = false; break; }
-        if (last_is_number) {
-            try { provided_total = stoull(tokens.back()); } catch (...) { provided_total = 0; }
-            // rel_path is tokens[1..n-2]
-            for (size_t i = 1; i + 1 < tokens.size(); ++i) {
-                if (i > 1) rel_path += " ";
-                rel_path += tokens[i];
-            }
-        } else {
-            // no total provided, rel_path is tokens[1..]
-            for (size_t i = 1; i < tokens.size(); ++i) {
-                if (i > 1) rel_path += " ";
-                rel_path += tokens[i];
-            }
-        }
-    } else {
-        rel_path = tokens[1];
+    string version_token;
+    size_t last = tokens.size();
+    if (parse_version_token(tokens.back(), version_token)) {
+        last = tokens.size() - 1;
+    }
+    static_cast<void>(version_token);
+    if (last < 3) {
+        send_line(sockfd_, "ERR 400 Usage: PUT_TEXT <path> <size>");
+        return true;
+    }
+    for (size_t i = 1; i + 1 < last; ++i) {
+        if (i > 1) rel_path += " ";
+        rel_path += tokens[i];
+    }
+    if (rel_path.empty()) {
+        send_line(sockfd_, "ERR 400 Usage: PUT_TEXT <path> <size>");
+        return true;
     }
     if (!is_txt_file(rel_path)) {
         send_line(sockfd_, "ERR 415 Only .txt allowed");
         return true;
     }
-    
+
+    uint64_t size = 0;
+    try {
+        size = stoull(tokens[last - 1]);
+    } catch (...) {
+        send_line(sockfd_, "ERR 400 Invalid size");
+        return true;
+    }
+
     string err;
     int owner_id = user_id_;
     int file_id = 0;
@@ -579,17 +650,26 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
             owner_user = username_;
         }
     }
-    
-    uint64_t size = 0;
-    try {
-        size = stoull(tokens[2]);
-    } catch (...) {
-        send_line(sockfd_, "ERR 400 Invalid size");
-        return true;
-    }
+
+    auto file_lock = server_.lock_file(owner_user, rel_path);
+    static_cast<void>(file_lock);
+
     string base_dir  = server_.root_dir() + "/" + owner_user;
     string full_path = base_dir + "/" + rel_path;
+    bool disk_exists = utils::file_exists(full_path);
     uint64_t old_size = file_size(full_path);
+
+    if (disk_exists) {
+        string locked_by;
+        if (!server_.get_edit_lock_owner(owner_user, rel_path, locked_by)) {
+            send_line(sockfd_, "ERR 409 Not locked (use GET_TEXT LOCK)");
+            return true;
+        }
+        if (locked_by != username_) {
+            send_line(sockfd_, "ERR 423 Locked by " + locked_by);
+            return true;
+        }
+    }
 
     // Refresh quota state from DB
     uint64_t quota_limit = 0;
@@ -605,8 +685,6 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
 
     uint64_t current_used = server_.quota_mgr().used(owner_user);
     uint64_t additional = size > old_size ? size - old_size : 0;
-    
-    // Check quota BEFORE accepting text
     if (quota_limit > 0 && current_used + additional > quota_limit) {
         send_line(sockfd_, "ERR 403 Quota exceeded");
         return true;
@@ -620,7 +698,7 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         utils::ensure_dir(full_path.substr(0, parent_pos));
     }
 
-    ofstream ofs(tmp_path);
+    ofstream ofs(tmp_path, ios::binary);
     if (!ofs) {
         send_line(sockfd_, "ERR 500 Cannot open temp file");
         return true;
@@ -628,6 +706,7 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
     send_line(sockfd_, "OK 100 Ready to receive");
     const size_t BUF_SIZE = 64 * 1024;
     vector<char> buf(BUF_SIZE);
+    uint64_t new_hash = k_fnv_offset;
     uint64_t remaining = size;
     while (remaining > 0) {
         size_t chunk = remaining > BUF_SIZE ? BUF_SIZE : (size_t)remaining;
@@ -635,6 +714,7 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
             send_line(sockfd_, "ERR 500 Receive error");
             return false;
         }
+        new_hash = fnv1a64_update(new_hash, buf.data(), chunk);
         ofs.write(buf.data(), (streamsize)chunk);
         if (!ofs) {
             send_line(sockfd_, "ERR 500 Write error");
@@ -644,11 +724,11 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         server_.add_bytes_in(chunk);
     }
     ofs.close();
-    
+
     ::rename(tmp_path.c_str(), full_path.c_str());
     int64_t delta = (int64_t)size - (int64_t)old_size;
     server_.quota_mgr().adjust_usage(owner_user, delta);
-    
+
     uint64_t used = server_.quota_mgr().used(owner_user);
     server_.db().update_used_bytes(owner_id, used, err);
     if (!server_.db().upsert_file_entry(owner_id, rel_path, size, false, err)) {
@@ -656,8 +736,12 @@ bool ClientSession::cmd_put_text(const vector<string> &tokens) {
         send_line(sockfd_, "ERR 500 DB error: " + err);
         return true;
     }
-    server_.logger().log(username_, "PUT_TEXT " + rel_path + " size=" + to_string(size));
-    send_line(sockfd_, "OK 200 Text file updated");
+    if (disk_exists) {
+        server_.release_edit_lock(owner_user, rel_path, username_);
+    }
+    string new_version = hex_u64(new_hash);
+    server_.logger().log(username_, "PUT_TEXT " + rel_path + " size=" + to_string(size) + " v=" + new_version);
+    send_line(sockfd_, "OK 200 Text file updated v=" + new_version);
     return true;
 }
 
@@ -722,6 +806,7 @@ bool ClientSession::cmd_logout() {
         authenticated_ = false;
 
         if (counted_online_) {
+            server_.release_all_edit_locks(username_);
             server_.user_logout(username_);
             counted_online_ = false;
         }
