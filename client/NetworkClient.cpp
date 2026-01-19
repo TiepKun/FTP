@@ -712,6 +712,15 @@ bool NetworkClient::list_files_db(string &paths, string &err) {
     return true;
 }
 
+bool NetworkClient::ping(string &err) {
+    if (sockfd_ < 0) { err = "Not connected"; return false; }
+    if (!send_line(sockfd_, "PING")) { err = "Send error"; return false; }
+    string line;
+    if (!recv_line(sockfd_, line)) { err = "No response"; return false; }
+    if (line.rfind("OK 200", 0) == 0) return true;
+    err = line; return false;
+}
+
 bool NetworkClient::send_raw_command(const string &cmd, string &out, string &err) {
     if (sockfd_ < 0) {
         err = "Not connected";

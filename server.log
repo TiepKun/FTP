@@ -133,3 +133,32 @@
 2026-01-14 23:07:19 [tiep] SET_PERMISSION user_account.txt for tiep2
 2026-01-14 23:07:30 [tiep] PUT_TEXT user_account.txt size=287 v=6910f53d9bfe8f5f
 2026-01-14 23:07:32 [tiep1] GET_TEXT user_account.txt size=287
+2026-01-19 14:21:01 [admin1] Login failed (user not found)
+2026-01-19 14:21:03 [admin] Login failed (user not found)
+2026-01-19 14:21:05 [tum] Login failed (wrong password)
+2026-01-19 14:21:11 [tum] Login failed (wrong password)
+2026-01-19 14:21:13 [tum] Login success
+2026-01-19 14:22:19 [tum] REGISTER success
+2026-01-19 14:22:20 [tum] Login success
+2026-01-19 14:22:36 [tum] UPLOAD test1.txt size=7
+2026-01-19 14:22:41 [tum] GET_TEXT test1.txt size=7
+2026-01-19 14:27:59 [tum] PUT_TEXT test1.txt size=14 v=214bb7a7e3fb0460
+2026-01-19 14:28:11 [tum] GET_TEXT test1.txt size=14
+2026-01-19 14:28:13 [tum] PUT_TEXT test1.txt size=14 v=214bb7a7e3fb0460
+2026-01-19 14:28:25 [tum] DOWNLOAD completed test1.txt
+2026-01-19 17:10:12 [tum] Login success
+2026-01-19 17:10:38 [tum] UPLOAD mysql-8.0.44-winx64.msi size=129552384
+2026-01-19 17:10:45 [tum] DELETE mysql-8.0.44-winx64.msi
+2026-01-19 17:41:46 [tum] Login success
+2026-01-19 17:54:44 [tum] Login success
+2026-01-19 17:54:57 [tum] UPLOAD test.zip size=932675657
+2026-01-19 17:56:30 [tum] Login failed (wrong password)
+2026-01-19 17:56:32 [tum] Login success
+2026-01-19 17:57:28 [tum] UNZIP test.zip extracted 936627376 bytes
+2026-01-19 17:59:00 [tum] Login success
+2026-01-19 17:59:46 [tum] DELETE test
+2026-01-19 18:00:22 [tum] UNZIP test.zip extracted 936627376 bytes
+2026-01-19 18:00:23 [tum] Login success
+2026-01-19 18:00:29 [tum] DELETE test
+2026-01-19 18:01:06 [tum] UNZIP test.zip extracted 936627376 bytes
+2026-01-19 18:01:17 [tum] Login success

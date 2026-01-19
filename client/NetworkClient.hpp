@@ -61,6 +61,7 @@ public:
     bool list_acl(const string &path, string &rows, string &err);
     bool list_files_db(string &paths, string &err);
     bool send_raw_command(const string& cmd, string& out, string& err);
+    bool ping(string &err);
              
 
 private:

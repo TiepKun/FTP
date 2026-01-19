@@ -125,6 +125,7 @@ bool ClientSession::handle_command(const string &line) {
     if (cmd == "REGISTER") {
         return cmd_register(tokens);
     }
+    if (cmd == "PING")     return cmd_ping();
     if (cmd == "WHO")      return cmd_who();       // <- QUAN TRỌNG PHẢI ĐỂ TRÊN
     if (cmd == "STATS")    return cmd_stats(); 
 
@@ -751,6 +752,12 @@ bool ClientSession::cmd_stats() {
                  " bytes_out=" + to_string(server_.bytes_out());
     send_line(sockfd_, msg);
     server_.logger().log(username_, "STATS");
+    return true;
+}
+
+bool ClientSession::cmd_ping() {
+    // Simple heartbeat to confirm the TCP session is still alive.
+    send_line(sockfd_, "OK 200 PONG");
     return true;
 }
 

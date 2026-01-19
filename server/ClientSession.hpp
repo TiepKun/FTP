@@ -25,6 +25,7 @@ private:
     bool cmd_logout();
     bool cmd_stats();
     bool cmd_who();
+    bool cmd_ping();
 
     bool cmd_list_db(const vector<string> &tokens);
     

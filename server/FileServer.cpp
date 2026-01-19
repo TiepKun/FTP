@@ -8,6 +8,7 @@
 #include <thread>
 #include <iostream>
 #include <filesystem>
+#include <netinet/tcp.h>
 
 using namespace std;
 
@@ -24,6 +25,20 @@ string resolve_account_path() {
     if (const char *p = ::getenv("FS_ACCOUNT_PATH")) return string(p);
     namespace fs = std::filesystem;
     return (fs::current_path() / "user_account.txt").string();
+}
+
+// Bật TCP keepalive để phát hiện client chết sớm hơn.
+void enable_keepalive(int fd) {
+    int yes = 1;
+    ::setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
+
+    // Các tham số dưới đây phụ thuộc hệ thống; nếu không hỗ trợ sẽ bỏ qua.
+    int idle = 60;      // giây không lưu lượng trước khi gửi keepalive đầu tiên
+    int intvl = 15;     // khoảng cách giữa các keepalive
+    int cnt = 4;        // số lần thử trước khi coi như mất kết nối
+    ::setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(idle));
+    ::setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &intvl, sizeof(intvl));
+    ::setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof(cnt));
 }
 } // namespace
 
@@ -73,6 +88,7 @@ void FileServer::run() {
             perror("accept");
             continue;
         }
+        enable_keepalive(connfd);
         thread([this, connfd]() {
             ClientSession session(connfd, *this);
             session.run();
