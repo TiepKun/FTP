@@ -25,6 +25,7 @@ public:
     bool upload_file_with_progress(const std::string &local_path,
                                const std::string &remote_path,
                                std::atomic<uint64_t> &sent,
+                               std::atomic<bool> &pause_requested,
                                std::string &err);
     bool download_file(const string &remote_path,
                        const string &local_path,
@@ -34,6 +35,7 @@ public:
         const string &local_path,
         std::atomic<uint64_t> &received,
         uint64_t &total,
+        std::atomic<bool> &pause_requested,
         string &err
     );
     bool pause_upload(const string &remote_path, string &err);

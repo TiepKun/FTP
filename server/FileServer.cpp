@@ -150,6 +150,37 @@ std::shared_ptr<UploadState> FileServer::create_upload_state(
     return state;
 }
 
+std::shared_ptr<DownloadState> FileServer::get_download_state(
+    const std::string &username,
+    const std::string &path
+) {
+    std::string key = username + ":" + path;
+    std::lock_guard<std::mutex> lk(download_states_mutex_);
+    auto it = download_states_.find(key);
+    if (it == download_states_.end()) return nullptr;
+    return it->second;
+}
+
+void FileServer::remove_download_state(
+    const std::string &username,
+    const std::string &path
+) {
+    std::lock_guard<std::mutex> lk(download_states_mutex_);
+    download_states_.erase(username + ":" + path);
+}
+
+std::shared_ptr<DownloadState> FileServer::create_download_state(
+    const std::string &username,
+    const std::string &path
+) {
+    std::string key = username + ":" + path;
+    std::lock_guard<std::mutex> lk(download_states_mutex_);
+
+    auto state = std::make_shared<DownloadState>();
+    download_states_[key] = state;
+    return state;
+}
+
 std::unique_lock<std::mutex> FileServer::lock_file(
     const std::string &owner_user,
     const std::string &path

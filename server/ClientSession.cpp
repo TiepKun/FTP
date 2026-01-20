@@ -343,24 +343,29 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
     int session_id = -1;
     string err;
 
+    // Clean up any old session for this file
+    int old_session_id;
+    uint64_t dummy_offset, dummy_size;
+    if (server_.db().get_transfer_session(user_id_, rel_path, "UPLOAD", old_session_id, dummy_offset, dummy_size, err)) {
+        server_.db().delete_transfer_session(old_session_id, err);
+    }
+
     // ===== ADD: upload state for pause =====
     auto state = server_.create_upload_state(username_, rel_path);
     state->offset = 0;
     state->paused = false;
 
+    // Create transfer session at start so pause can work
+    server_.db().create_transfer_session(
+        user_id_, rel_path, "UPLOAD",
+        size, 0, session_id, err
+    );
+
     while (remaining > 0) {
         // ===== ADD: check pause =====
         if (state->paused) {
             uint64_t current_offset = size - remaining;
-
-            if (session_id < 0) {
-                server_.db().create_transfer_session(
-                    user_id_, rel_path, "UPLOAD",
-                    size, current_offset, session_id, err
-                );
-            } else {
-                server_.db().update_transfer_session(session_id, current_offset, err);
-            }
+            server_.db().update_transfer_session(session_id, current_offset, err);
 
             ofs.flush();
             ofs.close();
@@ -373,11 +378,7 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
 
         if (!recv_exact(sockfd_, buf.data(), chunk)) {
             uint64_t current_offset = size - remaining;
-            if (session_id < 0) {
-                server_.db().create_transfer_session(user_id_, rel_path, "UPLOAD", size, current_offset, session_id, err);
-            } else {
-                server_.db().update_transfer_session(session_id, current_offset, err);
-            }
+            server_.db().update_transfer_session(session_id, current_offset, err);
             return false;
         }
 
@@ -406,14 +407,9 @@ bool ClientSession::cmd_upload(const vector<string> &tokens) {
         return true;
     }
 
+    // Delete transfer session after successful upload
     if (session_id >= 0) {
         server_.db().delete_transfer_session(session_id, err);
-    } else {
-        int old_session_id;
-        uint64_t dummy_offset, dummy_size;
-        if (server_.db().get_transfer_session(user_id_, rel_path, "UPLOAD", old_session_id, dummy_offset, dummy_size, err)) {
-            server_.db().delete_transfer_session(old_session_id, err);
-        }
     }
 
     server_.logger().log(username_, "UPLOAD " + rel_path + " size=" + to_string(size));
@@ -461,8 +457,37 @@ bool ClientSession::cmd_download(const vector<string> &tokens) {
 
     uint64_t offset = 0;
     uint64_t sent   = 0;
+    string err;
+    int session_id = -1;
+
+    // Clean up any old session for this file
+    int old_session_id;
+    uint64_t dummy_offset, dummy_size;
+    if (server_.db().get_transfer_session(user_id_, rel_path, "DOWNLOAD", old_session_id, dummy_offset, dummy_size, err)) {
+        server_.db().delete_transfer_session(old_session_id, err);
+    }
+
+    // ===== ADD: download state for pause =====
+    auto state = server_.create_download_state(username_, rel_path);
+    state->offset = 0;
+    state->paused = false;
+
+    // Create transfer session at start so pause can work
+    server_.db().create_transfer_session(
+        user_id_, rel_path, "DOWNLOAD",
+        size, 0, session_id, err
+    );
 
     while (sent < size) {
+        // ===== ADD: check pause =====
+        if (state->paused) {
+            uint64_t current_offset = sent;
+            server_.db().update_transfer_session(session_id, current_offset, err);
+            send_line(sockfd_, "OK 200 Download paused");
+            return true;
+        }
+        // ===== END ADD =====
+
         size_t chunk = min<uint64_t>(BUF_SIZE, size - sent);
         ifs.read(buf.data(), (streamsize)chunk);
         streamsize got = ifs.gcount();
@@ -470,44 +495,24 @@ bool ClientSession::cmd_download(const vector<string> &tokens) {
 
         if (!send_all(sockfd_, buf.data(), (size_t)got)) {
             // ❗ offset = số byte gửi thành công
-            string err;
-            int session_id;
-
-            if (!server_.db().get_transfer_session(
-                    user_id_, rel_path, "DOWNLOAD",
-                    session_id, offset, size, err)) {
-                server_.db().create_transfer_session(
-                    user_id_, rel_path, "DOWNLOAD",
-                    size, offset, session_id, err);
-            } else {
-                server_.db().update_transfer_session(session_id, offset, err);
-            }
+            server_.db().update_transfer_session(session_id, sent, err);
             return false;
         }
 
         sent   += (uint64_t)got;
         offset += (uint64_t)got;
+        state->offset = sent;   // ⭐ ADD
         server_.add_bytes_out((uint64_t)got);
 
         // update mỗi ~640KB
         if (sent % (BUF_SIZE * 10) == 0) {
-            string err;
-            int session_id;
-            if (server_.db().get_transfer_session(
-                    user_id_, rel_path, "DOWNLOAD",
-                    session_id, offset, size, err)) {
-                server_.db().update_transfer_session(session_id, offset, err);
-            }
+            server_.db().update_transfer_session(session_id, sent, err);
         }
     }
 
     // done → xóa session
-    string err;
-    int session_id;
-    uint64_t dummy1, dummy2;
-    if (server_.db().get_transfer_session(
-            user_id_, rel_path, "DOWNLOAD",
-            session_id, dummy1, dummy2, err)) {
+    server_.remove_download_state(username_, rel_path);
+    if (session_id >= 0) {
         server_.db().delete_transfer_session(session_id, err);
     }
 
@@ -1480,17 +1485,27 @@ bool ClientSession::cmd_pause_download(const vector<string> &tokens) {
         return true;
     }
     
-    // Get current offset from client if provided
+    // Get current download state if exists
+    auto state = server_.get_download_state(username_, rel_path);
     uint64_t offset = 0;
-    if (tokens.size() >= 3) {
-        try {
-            offset = stoull(tokens[2]);
-        } catch (...) {}
+    
+    if (state) {
+        // Active download - set pause flag and get current offset
+        state->paused = true;
+        offset = state->offset;
+    } else {
+        // No active download - check if client provided offset
+        if (tokens.size() >= 3) {
+            try {
+                offset = stoull(tokens[2]);
+            } catch (...) {}
+        }
     }
     
     string err;
     int session_id;
-    if (!server_.db().get_transfer_session(user_id_, rel_path, "DOWNLOAD", session_id, offset, total_size, err)) {
+    uint64_t db_offset = offset;
+    if (!server_.db().get_transfer_session(user_id_, rel_path, "DOWNLOAD", session_id, db_offset, total_size, err)) {
         if (!server_.db().create_transfer_session(user_id_, rel_path, "DOWNLOAD", total_size, offset, session_id, err)) {
             send_line(sockfd_, "ERR 500 Cannot create session");
             return true;

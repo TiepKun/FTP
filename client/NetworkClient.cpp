@@ -332,6 +332,7 @@ bool NetworkClient::download_file_with_progress(
     const string &local_path,
     std::atomic<uint64_t> &received,
     uint64_t &total,
+    std::atomic<bool> &pause_requested,
     string &err
 ) {
     if (sockfd_ < 0) { err = "Not connected"; return false; }
@@ -355,6 +356,14 @@ bool NetworkClient::download_file_with_progress(
     vector<char> buf(BUF);
     uint64_t remaining = size;
     while (remaining > 0) {
+        // Check pause request
+        if (pause_requested.load()) {
+            // Close connection so server knows we stopped
+            close();
+            err = "Download paused by user";
+            return true;  // Return true since pause is intentional, not an error
+        }
+
         size_t chunk = remaining > BUF ? BUF : (size_t)remaining;
         if (!recv_exact(sockfd_, buf.data(), chunk)) {
             err = "Receive data error";
@@ -746,6 +755,7 @@ bool NetworkClient::upload_file_with_progress(
     const string &local_path,
     const string &remote_path,
     std::atomic<uint64_t> &sent,
+    std::atomic<bool> &pause_requested,
     string &err
 ) {
     if (sockfd_ < 0) {
@@ -779,6 +789,14 @@ bool NetworkClient::upload_file_with_progress(
     vector<char> buf(BUF);
 
     while (ifs) {
+        // Check pause request
+        if (pause_requested.load()) {
+            // Close connection so server knows we stopped
+            close();
+            err = "Upload paused by user";
+            return true;  // Return true since pause is intentional, not an error
+        }
+
         ifs.read(buf.data(), BUF);
         streamsize n = ifs.gcount();
         if (n <= 0) break;

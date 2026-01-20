@@ -304,19 +304,27 @@ void MainWindow::on_btn_upload_clicked() {
 
     std::thread([this, local_path, remote_path]() {
         string err;
+        pause_upload_requested_ = false;
         bool ok = client_.upload_file_with_progress(
             local_path,
             remote_path,
             upload_sent_,
+            pause_upload_requested_,
             err
         );
 
         Glib::signal_idle().connect_once([this, ok, err, remote_path]() {
             uploading_ = false;
+            pause_upload_requested_ = false;
             btn_upload_.set_sensitive(true);
 
             if (!ok) {
                 lbl_status_.set_text("Upload failed: " + err);
+            } else if (err == "Upload paused by user") {
+                lbl_status_.set_text("Upload paused successfully");
+                // Reconnect for future commands
+                string reconnect_err;
+                client_.ensure_connected(reconnect_err);
             } else {
                 lbl_status_.set_text("Uploaded " + remote_path);
                 refresh_file_list();
@@ -350,14 +358,21 @@ void MainWindow::on_btn_download_clicked() {
 
     std::thread([this, local_path, remote_path]() {
         string err;
-        bool ok = client_.download_file_with_progress(remote_path, local_path, download_received_, download_total_, err);
+        pause_download_requested_ = false;
+        bool ok = client_.download_file_with_progress(remote_path, local_path, download_received_, download_total_, pause_download_requested_, err);
         Glib::signal_idle().connect_once([this, ok, err, local_path]() {
             downloading_ = false;
+            pause_download_requested_ = false;
             btn_download_.set_sensitive(true);
             progress_download_.set_fraction(0.0);
             progress_download_.set_text("");
             if (!ok) {
                 lbl_status_.set_text("Download failed: " + err);
+            } else if (err == "Download paused by user") {
+                lbl_status_.set_text("Download paused successfully");
+                // Reconnect for future commands
+                string reconnect_err;
+                client_.ensure_connected(reconnect_err);
             } else {
                 lbl_status_.set_text("Downloaded to " + local_path);
             }
@@ -369,10 +384,9 @@ void MainWindow::on_btn_pause_upload_clicked() {
     string remote_path = entry_path_.get_text();
     string err;
     if (uploading_) {
-        // currently uploading: stop local upload thread by closing connection
-        uploading_ = false;
-        client_.close();
-        lbl_status_.set_text("Upload paused (connection closed)");
+        // Signal upload thread to pause by setting flag
+        pause_upload_requested_ = true;
+        lbl_status_.set_text("Upload pause requested...");
         return;
     }
 
@@ -504,10 +518,9 @@ void MainWindow::on_btn_resume_upload_clicked() {
 void MainWindow::on_btn_pause_download_clicked() {
     string remote_path = entry_path_.get_text();
     if (downloading_) {
-        // stop current download and close connection; server will record offset on disconnect
-        downloading_ = false;
-        client_.close();
-        lbl_status_.set_text("Download paused (connection closed)");
+        // Signal download thread to pause by setting flag
+        pause_download_requested_ = true;
+        lbl_status_.set_text("Download pause requested...");
         return;
     }
 

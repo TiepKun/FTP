@@ -58,6 +58,21 @@ public:
         const std::string &path
     );
 
+    std::shared_ptr<DownloadState> get_download_state(
+        const std::string &username,
+        const std::string &path
+    );
+
+    std::shared_ptr<DownloadState> create_download_state(
+        const std::string &username,
+        const std::string &path
+    );
+
+    void remove_download_state(
+        const std::string &username,
+        const std::string &path
+    );
+
     std::unique_lock<std::mutex> lock_file(
         const std::string &owner_user,
         const std::string &path
@@ -100,6 +115,9 @@ private:
     // upload state per user:path
     std::unordered_map<std::string, std::shared_ptr<UploadState>> upload_states_;
     std::mutex upload_states_mutex_;
+    // download state per user:path
+    std::unordered_map<std::string, std::shared_ptr<DownloadState>> download_states_;
+    std::mutex download_states_mutex_;
 
     // per-file edit lock
     std::unordered_map<std::string, std::shared_ptr<std::mutex>> file_locks_;

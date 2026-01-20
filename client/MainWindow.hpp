@@ -109,6 +109,7 @@ protected:
     std::atomic<uint64_t> upload_sent_{0};
     uint64_t upload_total_{0};
     std::atomic<bool> uploading_{false};
+    std::atomic<bool> pause_upload_requested_{false};
 
     sigc::connection upload_timer_;
 
@@ -119,6 +120,7 @@ protected:
     std::atomic<uint64_t> download_received_{0};
     uint64_t download_total_{0};
     std::atomic<bool> downloading_{false};
+    std::atomic<bool> pause_download_requested_{false};
     sigc::connection download_timer_;
 
     // Logout button
