@@ -1,74 +1,111 @@
-# FileShare (C++/GTKmm)
+Ứng dụng chia sẻ và chỉnh sửa file qua TCP
 
-Ứng dụng chia sẻ/sửa file đơn giản gồm server TCP đa luồng và client GUI (GTKmm). Giao thức dựa trên các lệnh text theo dòng, có hỗ trợ upload/download và chỉnh sửa trực tiếp file .txt.
+Giới thiệu đề tài
+- Xây dựng hệ thống chia sẻ file theo mô hình client–server, hỗ trợ upload/download, xem/sửa file .txt, resume truyền file, chia sẻ theo quyền và quota người dùng.
+- Giao thức tầng ứng dụng dạng text line đơn giản, dễ debug qua telnet/netcat.
+- Dữ liệu được lưu trên filesystem, metadata/ACL/quota/resume lưu bằng SQLite.
 
-## Tính năng chính
-- Giao thức dòng: mọi lệnh/response là một dòng kết thúc `\n`, dùng hàm `recv_line`/`send_line`.
-- Giao tiếp socket: wrapper `send_all`/`recv_exact` cho I/O tin cậy, server đa luồng mỗi client một thread.
-- Sửa file `.txt`: lệnh `GET_TEXT` / `PUT_TEXT` kèm kiểm tra đuôi `.txt`, GUI Load/Save.
-- Quota tài khoản: kiểm tra trước khi ghi (tính thêm phần vượt trội nếu ghi đè), lưu usage trong DB.
-- Ghi log: server ghi `server.log` cho đăng nhập, đăng ký, upload/download, text, stats.
-- CSDL metadata: SQLite lưu user, quota, used_bytes, log, và bảng `file_entry` cho file (đường dẫn, kích thước).
-- Thống kê: lệnh `STATS` trả active users, bytes in/out.
-- Đăng ký người dùng: lệnh `REGISTER` tạo tài khoản, lưu hash mật khẩu vào DB và `user_account.txt`.
+Kiến trúc tổng thể
+- Server TCP đa luồng: mỗi kết nối được xử lý bởi một ClientSession riêng.
+- Lưu file vật lý tại ./data/<username>/..., hỗ trợ xóa mềm bằng thư mục .trash.
+- SQLite lưu metadata, ACL và trạng thái resume truyền file.
+- Client GUI (GTKmm) hiển thị “My Files” và “Shared Files”, có trình soạn thảo .txt.
+- Ghi log hoạt động vào server.log (mặc định ở thư mục chạy server).
 
-## Cấu trúc
-- `client/` — GUI (GTKmm 3) và NetworkClient.
-- `server/` — FileServer, ClientSession, SQLite DB wrapper, quota, log.
-- `common/` — Tiện ích và hàm giao thức socket.
-- `CMakeLists.txt` — cấu hình build (xuất `compile_commands.json`).
+Kiến trúc thư mục project
+- server/: mã nguồn server (FileServer, ClientSession, DbSqlite, quota, logger).
+- client/: mã nguồn client GUI (LoginWindow, MainWindow, NetworkClient).
+- common/: mã dùng chung (Protocol, Utils).
+- data/: thư mục dữ liệu runtime do server tạo (data/<user>/...).
+- build/: thư mục build CMake (tạo khi build).
+- fileshare.db: CSDL SQLite (tự tạo khi chạy server).
+- server.log: log server (tự tạo khi chạy server).
+- user_account.txt: file legacy, phiên bản hiện tại không dùng để auth.
 
-## Phụ thuộc
-- CMake ≥ 3.16
-- C++17 toolchain
-- gtkmm-3.0
-- SQLite3 dev
+Database (SQLite)
+- app_user: id, username, password_hash, quota_bytes, used_bytes, created_at.
+- file_entry: id, owner_id, path, size_bytes, is_folder, is_deleted, deleted_at, created_at, updated_at.
+- file_acl: id, file_id, grantee_id, perm_read, perm_download, perm_write, created_at.
+- transfer_session: id, user_id, path, type, offset, size_bytes, last_update.
+- audit_log: id, user_id, action, detail, created_at, remote_ip.
+- Index/constraint chính: UNIQUE(owner_id, path) cho file_entry; UNIQUE(file_id, grantee_id) cho file_acl.
 
-## Build
-```bash
-cmake -S . -B build
-cmake --build build
-```
-Nhị phân tạo ra: `build/fileshare_server`, `build/fileshare_client`. VS Code có thể trỏ `compileCommands` vào `build/compile_commands.json` để hết cảnh báo include.
+Giao thức ứng dụng (protocol)
+Quy ước chung
+- Lệnh là 1 dòng text kết thúc bằng \n.
+- Dữ liệu nhị phân gửi sau khi server trả OK 100.
+- Mã trả về phổ biến: OK 100 (ready), OK 200 (success), OK 201 (created), ERR 4xx/5xx.
 
-## Chạy
-Server (port mặc định 5051):
-```bash
-./build/fileshare_server 5051
-```
-Client GUI:
-```bash
-./build/fileshare_client
-```
+Auth
+- REGISTER <user> <pass>
+- AUTH <user> <pass>
+- LOGOUT
+- WHO
 
-### Đăng ký & đăng nhập
-- Nhập host/port/user/pass.
-- Bấm **Register** để tạo tài khoản (hash đơn giản, quota mặc định 100 MB, thông tin được thêm vào `user_account.txt`).
-- Bấm **Login** để vào cửa sổ chính, Load/Save file `.txt` theo đường dẫn tương đối (tạo nếu chưa có).
+File / Text
+- LIST_DB
+  + Trả về: path|size|is_folder|owner|can_view|can_download|can_edit
+- UPLOAD <size> <path> + body
+- DOWNLOAD <path>
+- GET_TEXT <path> [LOCK]
+  + LOCK để xin quyền edit. Nếu bị khóa: ERR 423 Locked by <username>
+- PUT_TEXT <path> <size> + body
+  + Chỉ người giữ LOCK mới được ghi.
+- STATS
 
-## Giao thức (tóm tắt)
-- `REGISTER <user> <pass>` → `OK 201 Registered` hoặc lỗi 409/500.
-- `AUTH <user> <pass>` → `OK 200 Authenticated` hoặc lỗi 403.
-- `GET_TEXT <path>` (chỉ `.txt`) → `OK 100 <size>` + nội dung; lỗi 404/415.
-- `PUT_TEXT <path> <size>` (chỉ `.txt`) → `OK 100 Ready to receive` rồi gửi body; trả `OK 200`.
-- `UPLOAD <path> <size>` → gửi body nhị phân, server lưu file; trả `OK 200`.
-- `DOWNLOAD <path>` → `OK 100 <size>` + body; lỗi 404.
-- `STATS` → `OK 200 active=<n> bytes_in=<..> bytes_out=<..>`.
+File operations
+- CREATE_FOLDER <path>
+- RENAME <old> <new>
+- MOVE <old> <new>
+- COPY <src> <dst>
+- DELETE <path>
+- RESTORE <path>
+- LIST_DELETED
+- UNZIP <zip_path> [target]
+  + Chỉ hoạt động nếu build có libzip (HAVE_LIBZIP).
 
-Mỗi lệnh/response kết thúc `\n`; các hàm `send_all`/`recv_exact` đảm bảo đủ byte cho body.
+Pause/Resume
+- PAUSE_UPLOAD <path>
+- CONTINUE_UPLOAD <path>
+- PAUSE_DOWNLOAD <path> [offset]
+- CONTINUE_DOWNLOAD <path>
 
-## Quota & metadata
-- Trước khi ghi: tính dung lượng tăng thêm (nếu ghi đè chỉ tính phần vượt trội). Từ chối khi vượt quota.
-- Sau khi ghi: cập nhật used_bytes và bảng `file_entry` (kích thước, đường dẫn) trong SQLite.
+ACL (chia sẻ quyền)
+- SET_PERMISSION <path> <target_user> <view> <download> <edit>
+- CHECK_PERMISSION <path>
+- LIST_ACL <path>
 
-## Logging
-- `server.log` chứa timestamp + user + hành động (auth, register, upload/download, text, stats).
+Cơ chế lock chỉnh sửa (.txt)
+- Mục tiêu: đảm bảo chỉ 1 người được edit tại một thời điểm.
+- Cách dùng:
+  + Client muốn edit: GET_TEXT <path> LOCK để xin quyền.
+  + Server cấp lock nếu chưa có ai giữ; nếu đã có thì trả ERR 423 Locked by <username>.
+  + Khi Save (PUT_TEXT) thành công, lock sẽ được giải phóng.
+  + Khi user logout hoặc mất kết nối, server tự giải phóng mọi lock của user đó.
+- Người không giữ lock chỉ xem, không được ghi.
 
-## Bảo mật (lưu ý)
-- Mật khẩu được hash bằng `std::hash` để tránh lưu plaintext; đây không phải hash an toàn cho sản phẩm thực tế. Cần nâng cấp nếu dùng thật.
+Yêu cầu cài đặt (chi tiết)
+Linux (Ubuntu/Debian)
+- sudo apt update
+- sudo apt install -y build-essential cmake pkg-config libsqlite3-dev libgtkmm-3.0-dev
 
-## Hạn chế hiện tại / TODO
-- Chưa lưu ACL/metadata nâng cao ngoài kích thước/đường dẫn.
-- Hash mật khẩu không đủ mạnh cho môi trường sản xuất.
-- Chưa có xóa file và giải phóng quota.
-- Chưa có đồng bộ/lock per-file khi nhiều client ghi cùng đường dẫn.
+macOS (Homebrew)
+- brew install cmake pkg-config sqlite3 gtkmm3
+
+Build
+- Nếu thư mục build bị dính cache từ máy khác, xóa build trước:
+  + rm -rf build
+- Build chuẩn:
+  + cmake -S . -B build
+  + cmake --build build
+
+Chạy
+- Server (mặc định dùng ./data, port 5051):
+  + ./build/fileshare_server 5051
+- Client:
+  + ./build/fileshare_client
+
+Ghi chú vận hành
+- Dữ liệu người dùng nằm trong ./data/<username>/
+- Xóa mềm: file/folder chuyển vào ./data/<username>/.trash/
+- Log server: server.log tại thư mục chạy server (có thể đổi bằng biến môi trường FS_LOG_PATH).

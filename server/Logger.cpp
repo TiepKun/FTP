@@ -1,4 +1,3 @@
-// ===== file: server/Logger.cpp =====
 #include "Logger.hpp"
 
 Logger::Logger(const string &filename) {
